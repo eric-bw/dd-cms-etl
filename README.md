@@ -7,7 +7,7 @@ This package is built to package and deploy content across environments
 2. transfer the xlsx package to a new environment
 
 ## Install Instructions
-* install python 3(.7)
+* install python 3.7
 * download this package or clone it using git.
 * open your terminal and go to the folder where the scripts are contained
 * install dependencies by calling 
