@@ -1,4 +1,4 @@
-import lib
+import _lib
 from simple_salesforce import Salesforce
 import argparse
 import sys
@@ -37,7 +37,7 @@ parser.add_argument('-r', '--refresh',
                     type=lib.str2bool,
                     help='clear data before loading',
                     required=False,
-                    default=True)
+                    default=False)
 
 
 args = parser.parse_args(sys.argv[1:])
@@ -47,8 +47,8 @@ target = Salesforce(username=args.username, password=args.password, sandbox=args
 log = './' + args.username + '_log_' + str(datetime.datetime.now()) + '.xlsx'
 
 if args.refresh:
-    lib.clear_content(target)
-lib.transfer(args.input, target, log)
+    _lib.clear_content(target)
+_lib.transfer(args.input, target, log)
 
 
 

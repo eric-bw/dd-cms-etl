@@ -1,12 +1,16 @@
 import _lib
-import datetime
 from simple_salesforce import Salesforce
-
 import argparse
 import sys
+import datetime
 
 
 parser = argparse.ArgumentParser(description='transfer content from a specifically designed excel document into a new org')
+
+parser.add_argument('-i', '--input',
+                    help=' input',
+                    required=False,
+                    default='')
 
 parser.add_argument('-u', '--username',
                     help=' Username',
@@ -29,10 +33,21 @@ parser.add_argument('-s', '--sandbox',
                     required=False,
                     default=True)
 
+parser.add_argument('-r', '--refresh',
+                    type=lib.str2bool,
+                    help='clear data before loading',
+                    required=False,
+                    default=False)
+
 
 args = parser.parse_args(sys.argv[1:])
 
-dev = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token)
-print('exporting content for ' + args.username)
-_lib.output(dev, args.username + '_' + datetime.datetime.now().strftime('%y-%m-%d'))
-print('done')
+
+target = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token)
+log = './' + args.username + '_log_' + str(datetime.datetime.now()) + '.csv'
+
+
+
+
+
+

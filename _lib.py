@@ -5,6 +5,7 @@ import requests
 import csv
 import os
 import shutil
+import zipfile
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -39,36 +40,63 @@ def output(sf, filepath) :
     wb = Workbook()
     wb.remove_sheet(wb.active)
     add_sheet(sf, wb, ['Id'], 'CMS_Page__c', 'Pages')
-    add_sheet(sf, wb, ['Id','Name'], 'CMS_Collection__c', 'Collections')
-    add_sheet(sf, wb, ['Id','Name'], 'CMS_Content__c', 'Contents')
+    # add_sheet(sf, wb, ['Id','Name'], 'CMS_Collection__c', 'Collections')
+    add_sheet(sf, wb, ['Id'], 'CMS_Content__c', 'Contents')
     add_sheet(sf, wb, ['Id'],'CMS_Asset__c', 'Assets')
-    add_sheet(sf, wb, ['Id'], 'ContentVersion', 'Files', filepath)
-    wb.save(filepath)
+    add_sheet_content(sf, wb, ['Id','ContentSize','Checksum'], 'ContentVersion', 'Files', filepath)
+    wb.save(filepath + '.xlsx')
+
+    zipf = zipfile.ZipFile(filepath + '.zip', 'w')
+    zipf.write(filepath + '.xlsx')
+    for f in os.listdir('./content'):
+        zipf.write('./content/' + f)
+    os.remove(filepath + '.xlsx')
+    shutil.rmtree('./content')
 
 
-def add_sheet(sf, wb, fields,  object_name, sheet_name, filepath=''):
+def add_sheet(sf, wb, fields,  object_name, sheet_name):
     meta = sf.__getattr__(object_name).describe()
     records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by createddate')['records']
     wb.create_sheet(sheet_name)
     sheet = wb[sheet_name]
-    if object_name == 'ContentVersion' and os.path.exists('./files'):
-        shutil.rmtree('./files')
     for i, row in enumerate(records):
         if i == 0:
             th = [x for x in row.keys() if x not in ['attributes','OwnerId']]
             sheet.append(th)
         tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
-        if object_name == 'ContentVersion':
-            url = "https://%s%s" % (sf.sf_instance, row['VersionData'])
-            response = requests.get(url, headers={"Authorization": "OAuth " + sf.session_id, "Content-Type": "application/octet-stream"})
-            if response.ok:
-                byte_string = str(base64.b64encode(response.content))
-                byte_string = byte_string[2:-1]
-                if not os.path.exists('./files'):
-                    os.mkdir('./files')
-                with open('./files/' + row['ContentDocumentId'],'w') as f:
-                    f.write(byte_string)
-                    f.close()
+
+
+        sheet.append(tr)
+
+def add_sheet_content(sf, wb, fields,  object_name, sheet_name, filepath):
+    meta = sf.__getattr__(object_name).describe()
+    records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) +
+                       ' from ' + object_name +
+                       ' where ContentDocumentId in (\'' + '\',\''.join(get_file_list(sf)) +'\') ' +
+                       ' order by createddate')['records']
+    wb.create_sheet(sheet_name)
+    sheet = wb[sheet_name]
+    if os.path.exists('./content'):
+        shutil.rmtree('./content')
+    os.mkdir('./content')
+    for i, row in enumerate(records):
+        if i == 0:
+            th = [x for x in row.keys() if x not in ['attributes','OwnerId']]
+            sheet.append(th)
+        tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
+
+        url = "https://%s%s" % (sf.sf_instance, row['VersionData'])
+        response = requests.get(url, headers={"Authorization": "OAuth " + sf.session_id, "Content-Type": "application/octet-stream"})
+        if response.ok:
+            byte_string = str(base64.b64encode(response.content))
+            byte_string = byte_string[2:-1]
+            with open('./content' + '/' + row['ContentDocumentId'],'w') as f:
+                f.write(byte_string)
+                f.close()
+        else:
+            print('file err: ' + response)
+            open('./content' + '/' + row['ContentDocumentId'],'w')
+
 
         sheet.append(tr)
 
@@ -101,7 +129,6 @@ def transfer_pages(map, wb, wb_out, sf):
 
     wb_out.create_sheet(sheet_name)
     sheet_out = wb_out[sheet_name]
-    sheet_out.append(['ORIGINAL_ID','NEW_ID','Notes'])
     for row in data.values():
         note = ''
         record = row.a.copy()
@@ -117,7 +144,7 @@ def transfer_pages(map, wb, wb_out, sf):
             row.b = row.a
             note += 'created record ' + row.b_id + ';'
         record['Id'] = row.b_id
-        sheet_out.append([row.a_id,row.b_id, note])
+        sheet_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
 
 def transfer_collections(map, wb, wb_out, sf):
@@ -127,7 +154,6 @@ def transfer_collections(map, wb, wb_out, sf):
 
     wb_out.create_sheet(sheet_name)
     sheet_out = wb_out[sheet_name]
-    sheet_out.append(['ORIGINAL_ID','NEW_ID','Notes'])
     for row in data.values():
         note = ''
         record = row.a.copy()
@@ -135,20 +161,12 @@ def transfer_collections(map, wb, wb_out, sf):
             record['CMS_Page__c'] = map[row.a['CMS_Page__c']].b_id
         record.pop('Name',None)
 
-        exists = sf.query('select id, Title__c from CMS_Collection__c where Title__c = \'%s\' or slug__c = \'%s\''%(row.a['Title__c'], row.a['Slug__c']))['records']
-        if exists:
-            row.b_id = exists[0]['Id']
-            row.b = exists[0]
-            sf.CMS_Collection__c.update(row.b_id, record)
-            note += 'updated %s;'%row.b_id
-        else:
-
-            rs = sf.CMS_Collection__c.create(record)
-            row.b_id = rs['id']
-            row.b = row.a
-            note += 'created record ' + row.b_id + ';'
+        rs = sf.CMS_Content__c.create(record)
+        row.b_id = rs['id']
+        row.b = row.a
+        note += 'created record ' + row.b_id + ';'
         record['Id'] = row.b_id
-        sheet_out.append([row.a_id,row.b_id, note])
+        sheet_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
 
 def transfer_content(map, wb, wb_out, sf):
@@ -159,7 +177,6 @@ def transfer_content(map, wb, wb_out, sf):
     wb_out.create_sheet(sheet_name)
     sheet_out = wb_out[sheet_name]
 
-    sheet_out.append(['ORIGINAL_ID','NEW_ID','Notes'])
     for row in data.values():
         note = ''
         record = row.a.copy()
@@ -186,10 +203,10 @@ def transfer_content(map, wb, wb_out, sf):
             row.b = row.a
             note += 'created record ' + row.b_id + ';'
         record['Id'] = row.b_id
-        sheet_out.append([row.a_id,row.b_id, note])
+        sheet_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
 
-def transfer_files(map, wb, wb_out, sf, filepath):
+def transfer_files(map, wb, wb_out, sf, archive):
     sheet_name = 'Files'
     sheet = wb[sheet_name]
     data = get_data(sheet, 'ContentDocumentId')
@@ -197,9 +214,6 @@ def transfer_files(map, wb, wb_out, sf, filepath):
     wb_out.create_sheet(sheet_name)
     sheet_out = wb_out[sheet_name]
 
-    sheet_out.append(['ORIGINAL_ID','NEW_ID','Notes'])
-
-    datamap = {}
 
     for document_id, row in data.items():
         note = ''
@@ -210,18 +224,22 @@ def transfer_files(map, wb, wb_out, sf, filepath):
             row.b = exists[0]
             note += 'record exists %s, no update;'%row.b_id
         else:
-            f = open('./files/' + document_id)
-            content = f.read()
-            f.close()
-            row.b = {'title' : row.a['Title'],'PathOnClient' : row.a['PathOnClient'],'VersionData' : content}
+            content = archive.read('content/' + document_id)
+            row.b = {'title' : row.a['Title'],'PathOnClient' : row.a['PathOnClient'],'VersionData' : content, 'PublishStatus': 'P'}
             content = sf.ContentVersion.create(row.b)
             row.b_id = content['id']
             row.b = sf.query('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where id = \'%s\''%(row.b_id))['records'][0]
             note += 'created record ' + row.b_id + ';'
 
         record['Id'] = row.b_id
-        sheet_out.append([row.a_id,row.b_id, note])
+        sheet_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
+
+def get_file_list(sf):
+    rs = []
+    for row in sf.query('select ContentDocument__c from CMS_Asset__c')['records']:
+        rs.append(row['ContentDocument__c'])
+    return rs
 
 def transfer_assets(map, wb, wb_out, sf):
     sheet_name = 'Assets'
@@ -230,7 +248,6 @@ def transfer_assets(map, wb, wb_out, sf):
 
     wb_out.create_sheet(sheet_name)
     sheet_out = wb_out[sheet_name]
-    sheet_out.append(['ORIGINAL_ID','NEW_ID','Notes'])
 
 
     for row in data.values():
@@ -263,22 +280,30 @@ def transfer_assets(map, wb, wb_out, sf):
             row.b = row.a
             note += 'created record ' + row.b_id + ';'
         row.a['Id'] = row.b_id
-        sheet_out.append([row.a_id,row.b_id, note])
+        sheet_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
 
 def transfer(filepath, sf, output_filepath):
-    wb = load_workbook(filepath)
-    wb_out = Workbook()
+    archive = zipfile.ZipFile(filepath, 'r')
+    for x in archive.namelist():
+        if x.endswith('.xlsx'):
+            excel_file = archive.open(x)
+        else:
+            f = archive.open(x)
+            pass
 
+    wb = load_workbook(excel_file)
+    wb_out = csv.writer(open(output_filepath,'w'))
+    wb_out.writerow(['ORIGINAL_ID','NEW_ID','Notes'])
     map = {}
-    print('transferring pages')
-    transfer_pages(map, wb, wb_out,  sf)
-    print('transferring collections',)
-    transfer_collections(map, wb, wb_out,  sf)
-    print('transferring content')
-    transfer_content(map, wb, wb_out, sf)
     print('transferring files')
     transfer_files(map, wb, wb_out, sf, filepath)
+    print('transferring pages')
+    transfer_pages(map, wb, wb_out,  sf)
+    print('transferring content')
+    transfer_content(map, wb, wb_out, sf)
+
+
     print('transferring assets')
     transfer_assets(map, wb, wb_out, sf)
     wb_out.save(output_filepath)
