@@ -346,6 +346,7 @@ def transfer_assets(map, wb, wb_out, sf):
 
         if 'Type__c' in record:
             record['Asset_Type__c'] = record['Type__c']
+            record.pop('Type__c')
 
         if not record['Asset_Type__c']:
             record['Asset_Type__c'] = 'MAIN_IMAGE'
