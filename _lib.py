@@ -39,9 +39,10 @@ def create_pages(sf):
 def output(sf, filepath) :
     wb = Workbook()
     wb.remove_sheet(wb.active)
+    add_sheet(sf, wb, ['Id'], 'CMS_Mega_Menu__c', 'Mega Menu')
     add_sheet(sf, wb, ['Id'], 'CMS_Page__c', 'Pages')
-    # add_sheet(sf, wb, ['Id','Name'], 'CMS_Collection__c', 'Collections')
-    add_sheet(sf, wb, ['Id'], 'CMS_Content__c', 'Contents')
+    add_sheet(sf, wb, ['Id','Name'], 'CMS_Collection__c', 'Collections')
+    add_sheet(sf, wb, ['Id','Name'], 'CMS_Content__c', 'Contents')
     add_sheet(sf, wb, ['Id'],'CMS_Asset__c', 'Assets')
     add_sheet_content(sf, wb, ['Id','ContentSize','Checksum'], 'ContentVersion', 'Files', filepath)
     wb.save(filepath + '.xlsx')
@@ -122,75 +123,61 @@ def get_data(sheet, key='Id'):
             rs[id] = t
     return rs
 
-def transfer_pages(map, wb, wb_out, sf):
+def transfer_pages(map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Pages'
     sheet = wb[sheet_name]
     data = get_data(sheet, 'Id')
 
-    wb_out.create_sheet(sheet_name)
-    sheet_out = wb_out[sheet_name]
+
+
     for row in data.values():
         note = ''
         record = row.a.copy()
-        exists = sf.query('select id from CMS_Page__c where Name = \'%s\''%(row.a['Name']))['records']
+        exists = sf.query('select id, Name from CMS_Page__c where Name = \'%s\''%(row.a['Name']))['records']
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
-            sf.CMS_Page__c.update(row.b_id, record)
+            if not read_only: sf.CMS_Page__c.update(row.b_id, record)
             note += 'updated %s;'%row.b_id
         else:
-            rs = sf.CMS_Page__c.create(row.a)
-            row.b_id = rs['id']
-            row.b = row.a
-            note += 'created record ' + row.b_id + ';'
+            if not read_only:
+                rs = sf.CMS_Page__c.create(row.a)
+                row.b_id = rs['id']
+                row.b = row.a
+                note += 'created record ' + row.b_id + ';'
+            else:
+                raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
-        sheet_out.writerow([row.a_id,row.b_id, note])
+        wb_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
 
-def transfer_collections(map, wb, wb_out, sf):
+def convert(filepath, sf, wb_out):
+    archive = zipfile.ZipFile(filepath, 'r')
+    for x in archive.namelist():
+        if x.endswith('.xlsx'):
+            excel_file = archive.open(x)
+            break
+
+    wb = load_workbook(excel_file)
+
+    wb_out.writerow(['ORIGINAL_ID','NEW_ID','Notes'])
+    map = {}
+
+
+    transfer_pages(map, wb, wb_out,  sf, True)
+
     sheet_name = 'Collections'
     sheet = wb[sheet_name]
     data = get_data(sheet)
 
-    wb_out.create_sheet(sheet_name)
-    sheet_out = wb_out[sheet_name]
+    recordtype = get_recordtype(sf.CMS_Content__c.describe(), 'Collection')
+
     for row in data.values():
         note = ''
         record = row.a.copy()
         if record['CMS_Page__c'] in map:
             record['CMS_Page__c'] = map[row.a['CMS_Page__c']].b_id
-        record.pop('Name',None)
-
-        rs = sf.CMS_Content__c.create(record)
-        row.b_id = rs['id']
-        row.b = row.a
-        note += 'created record ' + row.b_id + ';'
-        record['Id'] = row.b_id
-        sheet_out.writerow([row.a_id,row.b_id, note])
-    map.update(data)
-
-def transfer_content(map, wb, wb_out, sf):
-    sheet_name = 'Contents'
-    sheet = wb[sheet_name]
-    data = get_data(sheet)
-
-    wb_out.create_sheet(sheet_name)
-    sheet_out = wb_out[sheet_name]
-
-    for row in data.values():
-        note = ''
-        record = row.a.copy()
-        record.pop('Name',None)
-        if record['CMS_Collection__c'] in map:
-            record['CMS_Collection__c'] = map[record['CMS_Collection__c']].b_id
-        else:
-            note += 'record missing collection;'
-
-        if record['CMS_Page__c'] in map:
-            record['CMS_Page__c'] = map[record['CMS_Page__c']].b_id
-        else:
-            note += 'record missing page;'
-
+        record['RecordTypeId'] = recordtype['recordTypeId']
         exists = sf.query('select id, Name from CMS_Content__c where name = \'%s\' or slug__c = \'%s\''%(row.a['Name'], row.a['Slug__c']))['records']
         if exists:
             row.b_id = exists[0]['Id']
@@ -202,18 +189,58 @@ def transfer_content(map, wb, wb_out, sf):
             row.b_id = rs['id']
             row.b = row.a
             note += 'created record ' + row.b_id + ';'
-        record['Id'] = row.b_id
-        sheet_out.writerow([row.a_id,row.b_id, note])
+            record['Id'] = row.b_id
+            wb_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
 
-def transfer_files(map, wb, wb_out, sf, archive):
+    transfer(filepath, sf, wb_out, map)
+
+def get_recordtype(meta, recordtype_name):
+    for rt in meta['recordTypeInfos']:
+        if rt['name'] == recordtype_name:
+            return rt
+    return None
+
+def transfer_content(map, wb, wb_out, sf, read_only=False):
+    sheet_name = 'Contents'
+    sheet = wb[sheet_name]
+    data = get_data(sheet)
+
+    for row in data.values():
+        note = ''
+        record = row.a.copy()
+        if 'CMS_Collection__c' in record and record['CMS_Collection__c'] in map:
+            record['Collection__c'] = map[record['CMS_Collection__c']].b_id
+
+        if record['CMS_Page__c'] in map:
+            record['CMS_Page__c'] = map[record['CMS_Page__c']].b_id
+
+        exists = sf.query('select id, Name from CMS_Content__c where name = \'%s\' or slug__c = \'%s\''%(row.a['Name'], row.a['Slug__c']))['records']
+
+        if 'CMS_Collection__c' in record:
+            record.pop('CMS_Collection__c')
+
+        if exists:
+            row.b_id = exists[0]['Id']
+            row.b = exists[0]
+            if not read_only: sf.CMS_Content__c.update(row.b_id, record)
+            note += 'updated %s;'%row.b_id
+        else:
+            if not read_only:
+                rs = sf.CMS_Content__c.create(record)
+                row.b_id = rs['id']
+                row.b = row.a
+                note += 'created record ' + row.b_id + ';'
+            else:
+                raise Exception('record does not exist' + record['Name'])
+        record['Id'] = row.b_id
+        wb_out.writerow([row.a_id,row.b_id, note])
+    map.update(data)
+
+def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
     sheet_name = 'Files'
     sheet = wb[sheet_name]
     data = get_data(sheet, 'ContentDocumentId')
-
-    wb_out.create_sheet(sheet_name)
-    sheet_out = wb_out[sheet_name]
-
 
     for document_id, row in data.items():
         note = ''
@@ -224,15 +251,17 @@ def transfer_files(map, wb, wb_out, sf, archive):
             row.b = exists[0]
             note += 'record exists %s, no update;'%row.b_id
         else:
-            content = archive.read('content/' + document_id)
-            row.b = {'title' : row.a['Title'],'PathOnClient' : row.a['PathOnClient'],'VersionData' : content, 'PublishStatus': 'P'}
-            content = sf.ContentVersion.create(row.b)
-            row.b_id = content['id']
-            row.b = sf.query('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where id = \'%s\''%(row.b_id))['records'][0]
-            note += 'created record ' + row.b_id + ';'
-
+            if not read_only:
+                b64encoded = archive.read('content/' + document_id).decode('utf-8')
+                row.b = {'title' : row.a['Title'],'PathOnClient' : row.a['PathOnClient'],'VersionData' : b64encoded}
+                content = sf.ContentVersion.create(row.b)
+                row.b_id = content['id']
+                row.b = sf.query('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where id = \'%s\''%(row.b_id))['records'][0]
+                note += 'created record ' + row.b_id + ';'
+            else:
+                raise Exception('record does not exist' + record['Title'])
         record['Id'] = row.b_id
-        sheet_out.writerow([row.a_id,row.b_id, note])
+        wb_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
 
 def get_file_list(sf):
@@ -245,9 +274,6 @@ def transfer_assets(map, wb, wb_out, sf):
     sheet_name = 'Assets'
     sheet = wb[sheet_name]
     data = get_data(sheet)
-
-    wb_out.create_sheet(sheet_name)
-    sheet_out = wb_out[sheet_name]
 
 
     for row in data.values():
@@ -265,6 +291,13 @@ def transfer_assets(map, wb, wb_out, sf):
         else:
             note += 'record %s missing version;'%(record['ContentVersion__c'])
 
+
+        #TODO: remove temporary mapping translation
+        record['File_Type__c'] = record['type__c']
+        record['Type__c'] = record['Name']
+        if 'Name' in record:
+            record.pop('Name')
+
         exists = sf.query('select id, Name from CMS_Asset__c where name = \'%s\' and CMS_Content__c = \'%s\''%(row.a['Name'], record['CMS_Content__c']))['records']
         if exists:
             row.b_id = exists[0]['Id']
@@ -280,39 +313,39 @@ def transfer_assets(map, wb, wb_out, sf):
             row.b = row.a
             note += 'created record ' + row.b_id + ';'
         row.a['Id'] = row.b_id
-        sheet_out.writerow([row.a_id,row.b_id, note])
+        wb_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
 
-def transfer(filepath, sf, output_filepath):
+def transfer(filepath, sf, wb_out, map={}, read_only = False):
     archive = zipfile.ZipFile(filepath, 'r')
+    excel_file = None
     for x in archive.namelist():
         if x.endswith('.xlsx'):
             excel_file = archive.open(x)
-        else:
-            f = archive.open(x)
-            pass
+            break
+
+    if excel_file is None:
+        raise Exception('file not found')
 
     wb = load_workbook(excel_file)
-    wb_out = csv.writer(open(output_filepath,'w'))
-    wb_out.writerow(['ORIGINAL_ID','NEW_ID','Notes'])
-    map = {}
     print('transferring files')
-    transfer_files(map, wb, wb_out, sf, filepath)
+    transfer_files(map, wb, wb_out, sf, archive, read_only)
     print('transferring pages')
-    transfer_pages(map, wb, wb_out,  sf)
+    transfer_pages(map, wb, wb_out,  sf, read_only)
     print('transferring content')
-    transfer_content(map, wb, wb_out, sf)
-
-
+    transfer_content(map, wb, wb_out, sf, read_only)
     print('transferring assets')
     transfer_assets(map, wb, wb_out, sf)
-    wb_out.save(output_filepath)
     print('done')
 
 def clear_content(sf):
     print('clearing existing data')
-    for o in ['ContentDocument','CMS_Page__c','CMS_Collection__c','CMS_Content__c']:
-        for row in sf.query('select id from ' + o)['records']:
-            sf.__getattr__(o).delete(row['Id'])
-            print('.', end='')
+    for o in ['CMS_Mega_Menu__c','ContentDocument','CMS_Page__c','CMS_Collection__c','CMS_Content__c']:
+        try:
+            print('deleting ' + o)
+            for row in sf.query('select id from ' + o)['records']:
+                sf.__getattr__(o).delete(row['Id'])
+                print('.', end='')
+        except:
+            print('err, skipping ' + o)
     print('done')

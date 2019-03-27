@@ -34,5 +34,5 @@ args = parser.parse_args(sys.argv[1:])
 
 dev = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token)
 print('exporting content for ' + args.username)
-_lib.output(dev, args.username + '_' + datetime.datetime.now().strftime('%y-%m-%d'))
+_lib.output(dev, 'contentpak_' + args.username  + '_' + datetime.datetime.now().strftime('%y-%m-%d'))
 print('done')

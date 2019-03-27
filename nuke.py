@@ -34,12 +34,6 @@ parser.add_argument('-s', '--sandbox',
                     required=False,
                     default=True)
 
-parser.add_argument('-r', '--refresh',
-                    type=_lib.str2bool,
-                    help='clear data before loading',
-                    required=False,
-                    default=False)
-
 
 args = parser.parse_args(sys.argv[1:])
 
@@ -47,7 +41,5 @@ args = parser.parse_args(sys.argv[1:])
 target = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token)
 
 
-
-log = csv.writer(open('./' + 'log_' +  args.username  +'_'+ str(datetime.datetime.now()) + '.csv','w'))
-log.writerow(['ORIGINAL_ID','NEW_ID','Notes'])
-_lib.transfer(args.input, target, log)
+input('WARNING: this will delete all CMS data on the target org. press enter to continue')
+_lib.clear_content(target)
