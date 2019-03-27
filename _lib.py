@@ -340,7 +340,7 @@ def transfer(filepath, sf, wb_out, map={}, read_only = False):
 
 def clear_content(sf):
     print('clearing existing data')
-    for o in ['CMS_Mega_Menu__c','ContentDocument','CMS_Page__c','CMS_Collection__c','CMS_Content__c']:
+    for o in ['CMS_Mega_Menu__c','CMS_Page__c','CMS_Collection__c','CMS_Content__c']:
         try:
             print('deleting ' + o)
             for row in sf.query('select id from ' + o)['records']:
