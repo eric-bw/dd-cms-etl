@@ -159,7 +159,9 @@ def transfer_pages(map, wb, wb_out, sf, read_only=False):
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
         wb_out.writerow([row.a_id,row.b_id, note])
+        print('.', end='')
     map.update(data)
+    print()
 
 def convert(filepath, sf, wb_out):
     archive = zipfile.ZipFile(filepath, 'r')
