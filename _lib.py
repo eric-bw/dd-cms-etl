@@ -41,8 +41,8 @@ def output(sf, filepath) :
     wb.remove_sheet(wb.active)
     add_sheet(sf, wb, ['Id'], 'CMS_Mega_Menu__c', 'Mega Menu')
     add_sheet(sf, wb, ['Id'], 'CMS_Page__c', 'Pages')
-    add_sheet(sf, wb, ['Id','Name'], 'CMS_Collection__c', 'Collections')
-    add_sheet(sf, wb, ['Id','Name'], 'CMS_Content__c', 'Contents')
+    # add_sheet(sf, wb, ['Id','Name'], 'CMS_Collection__c', 'Collections')
+    add_sheet(sf, wb, ['Id'], 'CMS_Content__c', 'Contents')
     add_sheet(sf, wb, ['Id'],'CMS_Asset__c', 'Assets')
     add_sheet_content(sf, wb, ['Id','ContentSize','Checksum'], 'ContentVersion', 'Files', filepath)
     wb.save(filepath + '.xlsx')
@@ -57,15 +57,25 @@ def output(sf, filepath) :
 
 def add_sheet(sf, wb, fields,  object_name, sheet_name):
     meta = sf.__getattr__(object_name).describe()
-    records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by createddate')['records']
+    recordtypes = {}
+    for r in meta['recordTypeInfos']:
+        recordtypes[r['recordTypeId']] = r['name']
+    if object_name == 'CMS_Content__c':
+        records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by collection__c desc')['records']
+    else:
+        records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by createddate')['records']
     wb.create_sheet(sheet_name)
     sheet = wb[sheet_name]
     for i, row in enumerate(records):
         if i == 0:
             th = [x for x in row.keys() if x not in ['attributes','OwnerId']]
+            if 'RecordTypeId' in row:
+                th = th + ['RecordTypeName']
             sheet.append(th)
-        tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
 
+        tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
+        if 'RecordTypeId' in row:
+            tr = tr + [recordtypes[row['RecordTypeId']]]
 
         sheet.append(tr)
 
@@ -201,6 +211,37 @@ def get_recordtype(meta, recordtype_name):
             return rt
     return None
 
+def transfer_mega(map, wb, wb_out, sf, read_only=False):
+    sheet_name = 'Mega Menu'
+    sheet = wb[sheet_name]
+    data = get_data(sheet)
+
+    for row in data.values():
+        note = ''
+        record = row.a.copy()
+
+        exists = sf.query('select id, Name from CMS_Mega_Menu__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
+
+
+        if exists:
+            row.b_id = exists[0]['Id']
+            row.b = exists[0]
+            if not read_only: sf.CMS_Mega_Menu__c.update(row.b_id, record)
+            note += 'updated %s;'%row.b_id
+        else:
+            if not read_only:
+                rs = sf.CMS_Mega_Menu__c.create(record)
+                row.b_id = rs['id']
+                row.b = row.a
+                note += 'created record ' + row.b_id + ';'
+            else:
+                raise Exception('record does not exist' + record['Name'])
+        record['Id'] = row.b_id
+        print('.', end='')
+        wb_out.writerow([row.a_id,row.b_id, note])
+    print()
+    map.update(data)
+
 def transfer_content(map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Contents'
     sheet = wb[sheet_name]
@@ -209,16 +250,27 @@ def transfer_content(map, wb, wb_out, sf, read_only=False):
     for row in data.values():
         note = ''
         record = row.a.copy()
-        if 'CMS_Collection__c' in record and record['CMS_Collection__c'] in map:
-            record['Collection__c'] = map[record['CMS_Collection__c']].b_id
+
+        if record['Collection__c'] in map:
+            record['Collection__c'] = map[record['Collection__c']].b_id
 
         if record['CMS_Page__c'] in map:
             record['CMS_Page__c'] = map[record['CMS_Page__c']].b_id
 
-        exists = sf.query('select id, Name from CMS_Content__c where name = \'%s\' or slug__c = \'%s\''%(row.a['Name'], row.a['Slug__c']))['records']
+        if record['CMS_Mega_Menu__c'] in map:
+            record['CMS_Mega_Menu__c'] = map[record['CMS_Mega_Menu__c']].b_id
 
-        if 'CMS_Collection__c' in record:
-            record.pop('CMS_Collection__c')
+        recordtypes={}
+        meta = sf.CMS_Content__c.describe()
+        for r in meta['recordTypeInfos']:
+            recordtypes[r['name']] = r['recordTypeId']
+
+        if record['RecordTypeName'] in recordtypes:
+            record['RecordTypeId'] = recordtypes[record['RecordTypeName']]
+            record.pop('RecordTypeName')
+
+        exists = sf.query('select id, Name from CMS_Content__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
+
 
         if exists:
             row.b_id = exists[0]['Id']
@@ -234,8 +286,10 @@ def transfer_content(map, wb, wb_out, sf, read_only=False):
             else:
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
+        print('.', end='')
         wb_out.writerow([row.a_id,row.b_id, note])
-    map.update(data)
+        map.update(data) #need to update with every creation since the its a nested structure
+    print()
 
 def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
     sheet_name = 'Files'
@@ -262,6 +316,8 @@ def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
                 raise Exception('record does not exist' + record['Title'])
         record['Id'] = row.b_id
         wb_out.writerow([row.a_id,row.b_id, note])
+        print('.', end='')
+    print()
     map.update(data)
 
 def get_file_list(sf):
@@ -284,6 +340,13 @@ def transfer_assets(map, wb, wb_out, sf):
             record['CMS_Content__c'] = map[record['CMS_Content__c']].b_id
         else:
             note += 'record missing content %s;'%(record['CMS_Content__c'])
+            print(note)
+
+        if 'Type__c' in record:
+            record['Asset_Type__c'] = record['Type__c']
+
+        if not record['Asset_Type__c']:
+            record['Asset_Type__c'] = 'MAIN_IMAGE'
 
         if row.a['ContentDocument__c'] in map:
             record['ContentDocument__c'] = map[row.a['ContentDocument__c']].b['ContentDocumentId']
@@ -291,10 +354,6 @@ def transfer_assets(map, wb, wb_out, sf):
         else:
             note += 'record %s missing version;'%(record['ContentVersion__c'])
 
-
-        #TODO: remove temporary mapping translation
-        record['File_Type__c'] = record['type__c']
-        record['Type__c'] = record['Name']
         if 'Name' in record:
             record.pop('Name')
 
@@ -314,7 +373,9 @@ def transfer_assets(map, wb, wb_out, sf):
             note += 'created record ' + row.b_id + ';'
         row.a['Id'] = row.b_id
         wb_out.writerow([row.a_id,row.b_id, note])
+        print('.', end='')
     map.update(data)
+    print()
 
 def transfer(filepath, sf, wb_out, map={}, read_only = False):
     archive = zipfile.ZipFile(filepath, 'r')
@@ -332,6 +393,8 @@ def transfer(filepath, sf, wb_out, map={}, read_only = False):
     transfer_files(map, wb, wb_out, sf, archive, read_only)
     print('transferring pages')
     transfer_pages(map, wb, wb_out,  sf, read_only)
+    print('transferring mega menus')
+    transfer_mega(map, wb, wb_out, sf, read_only)
     print('transferring content')
     transfer_content(map, wb, wb_out, sf, read_only)
     print('transferring assets')
