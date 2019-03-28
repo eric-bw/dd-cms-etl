@@ -26,7 +26,7 @@ parser.add_argument('-t', '--token',
 parser.add_argument('-s', '--sandbox',
                     type=_lib.str2bool,
                     help=' is sandbox',
-                    required=False,
+                    required=True,
                     default=True)
 
 

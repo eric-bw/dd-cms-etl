@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(description='transfer content from a specifical
 
 parser.add_argument('-i', '--input',
                     help=' input',
-                    required=False,
+                    required=True,
                     default='')
 
 parser.add_argument('-u', '--username',
@@ -41,5 +41,5 @@ args = parser.parse_args(sys.argv[1:])
 target = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token)
 
 
-input('WARNING: this will delete all CMS data on the target org. press enter to continue')
+input('WARNING: this will delete all CMS data on the target org. press enter to continue or ctrl-C to cancel')
 _lib.clear_content(target)

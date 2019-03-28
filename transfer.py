@@ -10,18 +10,15 @@ parser = argparse.ArgumentParser(description='transfer content from a specifical
 
 parser.add_argument('-i', '--input',
                     help=' input',
-                    required=False,
-                    default='')
+                    required=True)
 
 parser.add_argument('-u', '--username',
                     help=' Username',
-                    required=True,
-                    default='.')
+                    required=True)
 
 parser.add_argument('-p', '--password',
                     help=' Password',
-                    required=True,
-                    default='.')
+                    required=True)
 
 parser.add_argument('-t', '--token',
                     help=' Token',
@@ -31,14 +28,8 @@ parser.add_argument('-t', '--token',
 parser.add_argument('-s', '--sandbox',
                     type=_lib.str2bool,
                     help=' is sandbox',
-                    required=False,
+                    required=True,
                     default=True)
-
-parser.add_argument('-r', '--refresh',
-                    type=_lib.str2bool,
-                    help='clear data before loading',
-                    required=False,
-                    default=False)
 
 
 args = parser.parse_args(sys.argv[1:])
