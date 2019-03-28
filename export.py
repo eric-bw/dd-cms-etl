@@ -1,3 +1,8 @@
+import sys
+if sys.version_info < (3, 0):
+    sys.stdout.write("Sorry, this software requires Python 3(.7), not Python " + str(sys.version_info.major) + '.' +  str(sys.version_info.minor) + "\n")
+    sys.exit(1)
+
 import _lib
 import datetime
 from simple_salesforce import Salesforce

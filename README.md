@@ -7,11 +7,35 @@ This package is built to package and deploy content across environments
 2. transfer the xlsx package to a new environment
 
 ## Install Instructions
-* install python 3.7
+#### General
+* install python 3.7+ (later versions are likely fine but this is only tested with python 3)
 * download this package or clone it using git.
+* unzip the zip file
 * open your terminal and go to the folder where the scripts are contained
 * install dependencies by calling 
    ```$ pip3 install -r requirements.txt```
+* this script is written in python 3 and is not compatible with python 2
+   
+#### Windows Instructions
+there are a few differences between Windows and OSX that it makes sense to address them separately.
+* Windows does not have python installed by default
+* if you go through the default install process the python PATH is not setup and you wont be able to access python from the command line
+
+install steps for windows
+1. download the 32 bit package from the python website. https://www.python.org/downloads/windows/ (latest python 3)
+2. after downloading the exe, execute it 
+3. select custom install 
+![](https://docs.python.org/3/_images/win_installer.png "Custom Install")
+4. select the following options and change the install path to c:\python37 for ease of reference sake. 
+![](http://www.pitt.edu/~naraehan/python3/img/win-install3.png)
+5. in a windows terminal go to the unzipped folder (ex $ cd ~/Downloads/dd-cms-etl)
+6. execute scripts
+
+
+#### Mac OSX instructions
+Typically OSX already has python installed BUT python is mapped to python 2 you have to use python3 to execute a python 3 script.
+1. where instructions say to use python, call python3 instead
+2. where instructions say use pip, use pip3 instead.
    
 ## export
 call this script with the following parameters to generate a package. 
@@ -28,9 +52,9 @@ the output will be an excel file and a folder called files. The folder contains 
 ## transfer
 call this script with the following parameters to transfer a package to a new environment
 
-```$ python transfer.py -i <input 'export.19-03-20.xlsx'> -u <username> -p <password> -t <token> -s <is_sandbox? t/f>```
+```$ python transfer.py -i <input 'contentpak_<username>.<date>.zip'> -u <username> -p <password> -t <token> -s <is_sandbox? t/f>```
 #### Params
--i **input: Required** the name of the file you want to import  
+-i **input: Required** the path to the content pack you want to import  
 -u **username: Required** Target Salesforce environment username   
 -p **password: Required** Target Salesforce environment password  
 -t **Token: Required**   A salesforce token is a second passowrd that is required to access the Salesforce API. If you dont have it go to Settings > Reset Security Token and a new token will be emailed to you  
