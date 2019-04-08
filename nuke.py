@@ -38,6 +38,12 @@ parser.add_argument('-s', '--sandbox',
                     required=False,
                     default=True)
 
+parser.add_argument('-o', '--object',
+                    nargs='+',
+                    help=' Options [CMS_Mega_Menu__c, CMS_Page__c, CMS_Collection__c, CMS_Asset__c]',
+                    required=False,
+                    default=None)
+
 
 args = parser.parse_args(sys.argv[1:])
 
@@ -46,4 +52,4 @@ target = Salesforce(username=args.username, password=args.password, sandbox=args
 
 
 input('WARNING: this will delete all CMS data on the target org. press enter to continue or ctrl-C to cancel')
-_lib.clear_content(target)
+_lib.clear_content(target, args.object)

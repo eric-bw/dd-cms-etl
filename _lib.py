@@ -6,6 +6,7 @@ import csv
 import os
 import shutil
 import zipfile
+import re
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -148,13 +149,13 @@ def transfer_pages(map, wb, wb_out, sf, read_only=False):
             row.b_id = exists[0]['Id']
             row.b = exists[0]
             if not read_only: sf.CMS_Page__c.update(row.b_id, record)
-            note += 'updated %s;'%row.b_id
+            note += 'updated record'
         else:
             if not read_only:
                 rs = sf.CMS_Page__c.create(row.a)
                 row.b_id = rs['id']
                 row.b = row.a
-                note += 'created record ' + row.b_id + ';'
+                note += 'created record'
             else:
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
@@ -195,12 +196,12 @@ def convert(filepath, sf, wb_out):
             row.b_id = exists[0]['Id']
             row.b = exists[0]
             sf.CMS_Content__c.update(row.b_id, record)
-            note += 'updated %s;'%row.b_id
+            note += 'updated record'
         else:
             rs = sf.CMS_Content__c.create(record)
             row.b_id = rs['id']
             row.b = row.a
-            note += 'created record ' + row.b_id + ';'
+            note += 'created record'
             record['Id'] = row.b_id
             wb_out.writerow([row.a_id,row.b_id, note])
     map.update(data)
@@ -229,13 +230,13 @@ def transfer_mega(map, wb, wb_out, sf, read_only=False):
             row.b_id = exists[0]['Id']
             row.b = exists[0]
             if not read_only: sf.CMS_Mega_Menu__c.update(row.b_id, record)
-            note += 'updated %s;'%row.b_id
+            note += 'updated record'
         else:
             if not read_only:
                 rs = sf.CMS_Mega_Menu__c.create(record)
                 row.b_id = rs['id']
                 row.b = row.a
-                note += 'created record ' + row.b_id + ';'
+                note += 'created record'
             else:
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
@@ -278,13 +279,13 @@ def transfer_content(map, wb, wb_out, sf, read_only=False):
             row.b_id = exists[0]['Id']
             row.b = exists[0]
             if not read_only: sf.CMS_Content__c.update(row.b_id, record)
-            note += 'updated %s;'%row.b_id
+            note += 'updated record'
         else:
             if not read_only:
                 rs = sf.CMS_Content__c.create(record)
                 row.b_id = rs['id']
                 row.b = row.a
-                note += 'created record ' + row.b_id + ';'
+                note += 'created record'
             else:
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
@@ -298,25 +299,39 @@ def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
     sheet = wb[sheet_name]
     data = get_data(sheet, 'ContentDocumentId')
 
+
     for document_id, row in data.items():
         note = ''
         record = row.a.copy()
-        exists = sf.query('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where PathOnClient = \'%s\''%(row.a['PathOnClient']))['records']
+        exists = sf.query('select id, ContentDocumentId, Description  from ContentVersion where PathOnClient = \'%s\' and Checksum = \'%s\''%(row.a['PathOnClient'],row.a['Checksum']))['records']
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
-            note += 'record exists %s, no update;'%row.b_id
+            row.b['Description'] = 'cms-asset'
+
+            if not read_only: sf.ContentDocument.update(row.b['ContentDocumentId'], {'Description':'cms-asset'})
+            note += 'updated record'
         else:
             if not read_only:
                 b64encoded = archive.read('content/' + document_id).decode('utf-8')
-                row.b = {'title' : row.a['Title'],'PathOnClient' : row.a['PathOnClient'],'VersionData' : b64encoded}
+                row.b = {'title' : row.a['Title'],'PathOnClient' : row.a['PathOnClient'],'VersionData' : b64encoded, 'Description': 'cms-asset'}
                 content = sf.ContentVersion.create(row.b)
                 row.b_id = content['id']
                 row.b = sf.query('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where id = \'%s\''%(row.b_id))['records'][0]
-                note += 'created record ' + row.b_id + ';'
+                note += 'created record'
             else:
                 raise Exception('record does not exist' + record['Title'])
         record['Id'] = row.b_id
+
+        library = sf.query('select id from ContentWorkspace where DeveloperName = \'sfdc_asset_company_assets\'')['records']
+        if not library:
+            raise Exception('Asset Library not found (sfdc_asset_company_assets)')
+
+        share = sf.query('select id from ContentDocumentLink where ContentDocumentId = \'%s\' and LinkedEntityId = \'%s\''%(row.b['ContentDocumentId'], library[0]['Id']))['records']
+        if not share:
+            rs = sf.ContentDocumentLink.create({'ContentDocumentId': row.b['ContentDocumentId'], 'LinkedEntityId': library[0]['Id'], 'ShareType':'I','Visibility':'AllUsers'})
+            wb_out.writerow(['',rs['id'], 'created content share'])
+
         wb_out.writerow([row.a_id,row.b_id, note])
         print('.', end='')
     print()
@@ -365,25 +380,28 @@ def transfer_assets(map, wb, wb_out, sf):
         if 'Name' in record:
             record.pop('Name')
 
-        exists = sf.query('select id, Name from CMS_Asset__c where name = \'%s\' and CMS_Content__c = \'%s\''%(row.a['Name'], record['CMS_Content__c']))['records']
+        exists = sf.query('select id, Name from CMS_Asset__c where slug__c = \'%s\''%(slugify(record['Asset_Type__c'], record['CMS_Content__c'])))['records']
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
             try:
                 rs = sf.CMS_Asset__c.update(row.b_id, record)
-                note += 'updated %s;'%row.b_id
+                note += 'updated record'
             except Exception as e:
-                note += 'updated failed %s -- %s;'%(row.b_id, e.content[0]['message'])
+                note += 'updated failed -- %s;'%(e.content[0]['message'])
         else:
             rs = sf.CMS_Asset__c.create(record)
             row.b_id = rs['id']
             row.b = row.a
-            note += 'created record ' + row.b_id + ';'
+            note += 'created record'
         row.a['Id'] = row.b_id
         wb_out.writerow([row.a_id,row.b_id, note])
         print('.', end='')
     map.update(data)
     print()
+
+def slugify(*args):
+    return re.sub('[^0-9a-zA-Z]+', '-', (' '.join(args)).lower())
 
 def transfer(filepath, sf, wb_out, map={}, read_only = False):
     archive = zipfile.ZipFile(filepath, 'r')
@@ -409,14 +427,27 @@ def transfer(filepath, sf, wb_out, map={}, read_only = False):
     transfer_assets(map, wb, wb_out, sf)
     print('done')
 
-def clear_content(sf):
+def clear_content(sf, objects):
     print('clearing existing data')
-    for o in ['CMS_Mega_Menu__c','CMS_Page__c','CMS_Collection__c','CMS_Content__c']:
+    for o in ['ContentDocument','CMS_Mega_Menu__c','CMS_Page__c','CMS_Content__c','CMS_Asset__c']:
+        if objects and o not in objects:
+            continue
         try:
             print('deleting ' + o)
-            for row in sf.query('select id from ' + o)['records']:
-                sf.__getattr__(o).delete(row['Id'])
-                print('.', end='')
-        except:
-            print('err, skipping ' + o)
+            records = []
+            if o == 'ContentDocument':
+                scope = []
+                for x in sf.query('select ContentDocument__c from CMS_Asset__c')['records']:
+                    scope.append(x['ContentDocument__c'])
+                for x in sf.query('select id from ' + o + ' where id in (\'%s\')'%("','".join(scope)))['records']:
+                    records.append({'Id':x['Id']})
+            else:
+                for x in sf.query('select id from ' + o)['records']:
+                    records.append({'Id': x['Id']})
+            if records:
+                sf.bulk.__getattr__(o).delete(records)
+            else:
+                print('no records found')
+        except Exception as e:
+            print('err: ' + str(e) )
     print('done')
