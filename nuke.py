@@ -12,11 +12,6 @@ import csv
 
 parser = argparse.ArgumentParser(description='transfer content from a specifically designed excel document into a new org')
 
-parser.add_argument('-i', '--input',
-                    help=' input',
-                    required=True,
-                    default='')
-
 parser.add_argument('-u', '--username',
                     help=' Username',
                     required=True,
