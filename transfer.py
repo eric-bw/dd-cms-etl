@@ -39,6 +39,5 @@ args = parser.parse_args(sys.argv[1:])
 target = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token, version='44.0')
 
 log = csv.writer(open('./' + 'log_' +  args.username.split('@')[1]  + re.sub('[^A-z0-9]','_', '_'+ str(datetime.datetime.now())) + '.csv','w'))
-exit()
 log.writerow(['ORIGINAL_ID','NEW_ID','Notes'])
 _lib.transfer(args.input, target, log)
