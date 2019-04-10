@@ -82,7 +82,7 @@ call this script with the following parameters to transfer a package to a new en
 ## export.py
 call this script with the following parameters to generate a package. 
 the output will be an excel file and a folder called files. The folder contains the image content. *<> means user provided values.
-
+```$ python export.py -u <username> -p <password> -t <token> -s <is_sandbox? t/f>```
 
 #### Params
 -u **username: Required** Salesforce environment username  
