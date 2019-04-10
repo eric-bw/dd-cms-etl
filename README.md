@@ -13,7 +13,7 @@ This package is built to package and deploy content across environments
 * unzip the zip file
 * open your terminal and go to the folder where the scripts are contained
 * install dependencies by calling 
-   ```$ pip install -r requirements.txt``` (Mac see mac instructions)
+   ```$ pip install -r requirements.txt``` (see mac instructions, if using osx)
 * this script is written in python 3 and is not compatible with python 2
    
 #### Windows Instructions
