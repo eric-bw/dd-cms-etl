@@ -61,10 +61,4 @@ call this script with the following parameters to transfer a package to a new en
 -p **password: Required** Target Salesforce environment password  
 -t **Token: Required**   A salesforce token is a second passowrd that is required to access the Salesforce API. If you dont have it go to Settings > Reset Security Token and a new token will be emailed to you  
 -s **Sandbox: Required** put 't' or 'true' if connection to a sandbox, put false if connecting to production  
--l **Level: Optional** <Number> control what gets transferred  
-```
-Level 1: transfer files
-Level 2: transfer pages
-Level 3: transfer content
-Level 4: transfer assets
-```
+
