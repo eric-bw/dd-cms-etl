@@ -13,7 +13,7 @@ This package is built to package and deploy content across environments
 * unzip the zip file
 * open your terminal and go to the folder where the scripts are contained
 * install dependencies by calling 
-   ```$ pip3 install -r requirements.txt```
+   ```$ pip install -r requirements.txt``` (Mac see mac instructions)
 * this script is written in python 3 and is not compatible with python 2
    
 #### Windows Instructions
@@ -36,6 +36,8 @@ install steps for windows
 Typically OSX already has python installed BUT python is mapped to python 2 you have to use python3 to execute a python 3 script.
 1. where instructions say to use python, call python3 instead
 2. where instructions say use pip, use pip3 instead.
+* install dependencies by calling 
+   ```$ pip3 install -r requirements.txt```
    
 ## export
 call this script with the following parameters to generate a package. 
