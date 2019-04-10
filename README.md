@@ -16,7 +16,7 @@ This package is built to package and deploy content across environments
    ```$ pip install -r requirements.txt``` (see mac instructions, if using osx)
 * this script is written in python 3 and is not compatible with python 2
    
-#### Windows Instructions
+#### Windows Install Instructions
 there are a few differences between Windows and OSX that it makes sense to address them separately.
 * Windows does not have python installed by default
 * if you go through the default install process the python PATH is not setup and you wont be able to access python from the command line
@@ -32,18 +32,32 @@ install steps for windows
 6. execute scripts
 
 
-#### Mac OSX instructions
+#### Mac OSX Install instructions
 Typically OSX already has python installed BUT python is mapped to python 2 you have to use python3 to execute a python 3 script.
 1. where instructions say to use python, call python3 instead
 2. where instructions say use pip, use pip3 instead.
 * install dependencies by calling 
    ```$ pip3 install -r requirements.txt```
    
-## export
+
+## Windows execution instructions
+Running from IDLE in windows tends to be a bit more responsive than running from the command line. These instructions address how to effectively provide parameters to the different scripts in order to run from IDLE
+
+## Opening script in IDLE
+1. open the folder that contains the script, then right click or double click on the file in windows to open in IDLE.
+2. paste the lines provided into the script
+3. press F5 or Run > Execute Script to execute the script and watch the results scroll across the screen. 
+4. you can save multiple configurations by commenting out the lines you dont want to use by putting a # in front of the line. 
+```
+#sys.argv = ['','-u', '<username1>', '-p', '<password>', '-t', '<token>', '-s','t']
+sys.argv = ['','-u', '<username2>', '-p', '<password>', '-t', '<token>', '-s','t']
+```
+
+## export.py
 call this script with the following parameters to generate a package. 
 the output will be an excel file and a folder called files. The folder contains the image content. *<> means user provided values.
 
-```$ python export.py -u <username> -p <password> -t <token> -s <is_sandbox? t/f>```
+```sys.argv = ['','-u', '<username>', '-p', '<password>', '-t', '<token>', '-s','t']```
 
 #### Params
 -u **username: Required** Salesforce environment username  
@@ -51,7 +65,32 @@ the output will be an excel file and a folder called files. The folder contains 
 -t **Token: Required**   A salesforce token is a second passowrd that is required to access the Salesforce API. If you dont have it go to Settings > Reset Security Token and a new token will be emailed to you  
 -s **Sandbox: Required** put 't' or 'true' if connection to a sandbox, put false if connecting to production
 
-## transfer
+## transfer.py
+call this script with the following parameters to transfer a package to a new environment
+
+```sys.argv = ['','-i','contentpak_<output from export>.zip','-u', '<username>', '-p', '<password>', '-t', '<token>', '-s','t']```
+
+#### Params
+-i **input: Required** the path to the content pack you want to import  
+-u **username: Required** Target Salesforce environment username   
+-p **password: Required** Target Salesforce environment password  
+-t **Token: Required**   A salesforce token is a second passowrd that is required to access the Salesforce API. If you dont have it go to Settings > Reset Security Token and a new token will be emailed to you  
+-s **Sandbox: Required** put 't' or 'true' if connection to a sandbox, put false if connecting to production  
+
+## Mac execution instructions
+
+## export.py
+call this script with the following parameters to generate a package. 
+the output will be an excel file and a folder called files. The folder contains the image content. *<> means user provided values.
+
+
+#### Params
+-u **username: Required** Salesforce environment username  
+-p **password: Required** Salesforce environment password  
+-t **Token: Required**   A salesforce token is a second passowrd that is required to access the Salesforce API. If you dont have it go to Settings > Reset Security Token and a new token will be emailed to you  
+-s **Sandbox: Required** put 't' or 'true' if connection to a sandbox, put false if connecting to production
+
+## transfer.py
 call this script with the following parameters to transfer a package to a new environment
 
 ```$ python transfer.py -i <input 'contentpak_<username>.<date>.zip'> -u <username> -p <password> -t <token> -s <is_sandbox? t/f>```
