@@ -41,10 +41,23 @@ def output(sf, filepath, args) :
     wb = Workbook()
     wb.remove_sheet(wb.active)
     filter=set()
+
+    if args.mega or args.pages:
+        print('exporting filtered content for ' + args.username.split('@')[1])
+        filepath = 'filtered_' + filepath
+        print('filtering by mega menus:', args.mega, ', pages', args.pages)
+    else:
+        print('exporting content for ' + args.username.split('@')[1])
+
     add_sheet(sf, wb, ['Id'], 'CMS_Mega_Menu__c', 'Mega Menu', filter, args)
+    print('.', end='')
     add_sheet(sf, wb, ['Id'], 'CMS_Page__c', 'Pages', filter, args)
+    print('.', end='')
     add_sheet(sf, wb, ['Id'], 'CMS_Content__c', 'Contents', filter, args)
+    print('.', end='')
     add_sheet(sf, wb, ['Id'],'CMS_Asset__c', 'Assets', filter, args)
+    print()
+    print('creating content pack')
     add_sheet_content(sf, wb, ['Id','ContentSize','Checksum'], 'ContentVersion', 'Files', filepath, filter, args)
     wb.save(filepath + '.xlsx')
 
@@ -54,6 +67,9 @@ def output(sf, filepath, args) :
         zipf.write('./content/' + f)
     os.remove(filepath + '.xlsx')
     shutil.rmtree('./content')
+    print()
+    print('contentpak:', filepath + '.zip')
+    print('done')
 
 def should_filter(row, object_name, filter_state, args):
     slug = ''
@@ -157,7 +173,7 @@ def add_sheet_content(sf, wb, fields,  object_name, sheet_name, filepath, filter
 
         if should_filter(row, object_name, filter_state, args):
             continue
-
+        print('.', end='')
         url = "https://%s%s" % (sf.sf_instance, row['VersionData'])
         response = requests.get(url, headers={"Authorization": "OAuth " + sf.session_id, "Content-Type": "application/octet-stream"})
         if response.ok:

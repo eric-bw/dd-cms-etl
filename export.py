@@ -48,6 +48,4 @@ parser.add_argument('-mega', '--mega',
 args = parser.parse_args(sys.argv[1:])
 
 dev = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token)
-print('exporting content for ' + args.username.split('@')[1])
 _lib.output(dev, 'contentpak_' + args.username.split('@')[1]   + '_' + datetime.datetime.now().strftime('%y-%m-%d'), args)
-print('done')
