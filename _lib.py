@@ -103,10 +103,6 @@ def should_filter(row, object_name, filter_state, args):
         elif row['Collection__r'] and row['Collection__r']['CMS_Mega_Menu__r']and row['Collection__r']['CMS_Mega_Menu__r']['Slug__c'] in filter_state:
             should_filter = False
 
-        del row['CMS_Page__r']
-        del row['Collection__r']
-        del row['CMS_Mega_Menu__r']
-
         if not should_filter:
             filter_state.add(row['Id'])
         return should_filter
@@ -147,6 +143,10 @@ def add_sheet(sf, wb, fields,  object_name, sheet_name, filter_state, args):
 
         if should_filter(row, object_name, filter_state, args):
             continue
+
+        if 'CMS_Page__r' in row: del row['CMS_Page__r']
+        if 'Collection__r' in row: del row['Collection__r']
+        if 'CMS_Mega_Menu__r' in row: del row['CMS_Mega_Menu__r']
 
         tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
         if 'RecordTypeId' in row:
