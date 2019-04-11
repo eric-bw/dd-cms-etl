@@ -212,10 +212,22 @@ def get_data(sheet, key='Id'):
     return rs
 
 def create_record(meta, row):
-    for field in row:
-        if field not in meta['fields']:
-            row.pop(field)
-    return row
+    rs = {}
+    for base_field in row:
+        found = False
+        if base_field == 'RecordTypeName':
+            rs[base_field] = row[base_field]
+            continue
+        for target_field in meta['fields']:
+            if base_field == target_field['name']:
+                rs[base_field] = row[base_field]
+                found = True
+                break
+        if not found:
+            # print(base_field, 'not found')
+            pass
+
+    return rs
 
 def transfer_pages(map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Pages'
@@ -339,7 +351,7 @@ def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
     sheet = wb[sheet_name]
     data = get_data(sheet, 'ContentDocumentId')
 
-    meta = sf.ContentDocument.describe()
+    meta = sf.ContentVersion.describe()
     for document_id, row in data.items():
         note = ''
         record = create_record(meta, row.a.copy())
@@ -415,11 +427,9 @@ def transfer_assets(map, wb, wb_out, sf):
         if row.a['ContentDocument__c'] in map:
             record['ContentDocument__c'] = map[row.a['ContentDocument__c']].b['ContentDocumentId']
             record['ContentVersion__c'] = map[row.a['ContentDocument__c']].b['Id']
+            record['Name'] = map[row.a['ContentDocument__c']].a['PathOnClient']
         else:
             note += 'record %s missing version;'%(record['ContentVersion__c'])
-
-        if 'Name' in record:
-            record.pop('Name')
 
         exists = sf.query('select id, Name from CMS_Asset__c where slug__c = \'%s\''%(slugify(record['Asset_Type__c'], record['CMS_Content__c'])))['records']
         if exists:
@@ -444,7 +454,7 @@ def transfer_assets(map, wb, wb_out, sf):
 def slugify(*args):
     return re.sub('[^0-9a-zA-Z]+', '-', (' '.join(args)).lower())
 
-def transfer(filepath, sf, wb_out, map={}, read_only = False):
+def transfer(filepath, sf, wb_out, args, read_only = False):
     archive = zipfile.ZipFile(filepath, 'r')
     excel_file = None
     for x in archive.namelist():
@@ -456,6 +466,7 @@ def transfer(filepath, sf, wb_out, map={}, read_only = False):
         raise Exception('file not found')
 
     wb = load_workbook(excel_file)
+    map={}
     print('transferring files')
     transfer_files(map, wb, wb_out, sf, archive, read_only)
     print('transferring pages')
