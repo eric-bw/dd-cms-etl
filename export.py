@@ -34,10 +34,20 @@ parser.add_argument('-s', '--sandbox',
                     required=True,
                     default=True)
 
+parser.add_argument('-pages', '--pages',
+                    nargs='+',
+                    help='export only pages and related content',
+                    required=False)
+
+parser.add_argument('-mega', '--mega',
+                    nargs='+',
+                    help='export only mega menu and related content',
+                    required=False)
+
 
 args = parser.parse_args(sys.argv[1:])
 
 dev = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token)
-print('exporting content for ' + args.username)
-_lib.output(dev, 'contentpak_' + args.username  + '_' + datetime.datetime.now().strftime('%y-%m-%d'))
+print('exporting content for ' + args.username.split('@')[1])
+_lib.output(dev, 'contentpak_' + args.username.split('@')[1]   + '_' + datetime.datetime.now().strftime('%y-%m-%d'), args)
 print('done')

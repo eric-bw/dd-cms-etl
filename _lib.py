@@ -37,15 +37,15 @@ def create_pages(sf):
                         sheet[row[0].coordinate] = record['id']
     wb.save('input/site.xlsx')
 
-def output(sf, filepath) :
+def output(sf, filepath, args) :
     wb = Workbook()
     wb.remove_sheet(wb.active)
-    add_sheet(sf, wb, ['Id'], 'CMS_Mega_Menu__c', 'Mega Menu')
-    add_sheet(sf, wb, ['Id'], 'CMS_Page__c', 'Pages')
-    # add_sheet(sf, wb, ['Id','Name'], 'CMS_Collection__c', 'Collections')
-    add_sheet(sf, wb, ['Id'], 'CMS_Content__c', 'Contents')
-    add_sheet(sf, wb, ['Id'],'CMS_Asset__c', 'Assets')
-    add_sheet_content(sf, wb, ['Id','ContentSize','Checksum'], 'ContentVersion', 'Files', filepath)
+    filter=set()
+    add_sheet(sf, wb, ['Id'], 'CMS_Mega_Menu__c', 'Mega Menu', filter, args)
+    add_sheet(sf, wb, ['Id'], 'CMS_Page__c', 'Pages', filter, args)
+    add_sheet(sf, wb, ['Id'], 'CMS_Content__c', 'Contents', filter, args)
+    add_sheet(sf, wb, ['Id'],'CMS_Asset__c', 'Assets', filter, args)
+    add_sheet_content(sf, wb, ['Id','ContentSize','Checksum'], 'ContentVersion', 'Files', filepath, filter, args)
     wb.save(filepath + '.xlsx')
 
     zipf = zipfile.ZipFile(filepath + '.zip', 'w')
@@ -55,24 +55,82 @@ def output(sf, filepath) :
     os.remove(filepath + '.xlsx')
     shutil.rmtree('./content')
 
+def should_filter(row, object_name, filter_state, args):
+    slug = ''
+    if 'Slug__c' in row:
+        slug = row['Slug__c']
 
-def add_sheet(sf, wb, fields,  object_name, sheet_name):
+    if object_name == 'CMS_Mega_Menu__c':
+        if args.mega and slug in args.mega:
+            filter_state.add(slug)
+            return False
+        if not args.mega and not args.pages :
+            return False
+        return True
+    elif object_name == 'CMS_Page__c':
+        if args.pages and slug in args.pages:
+            filter_state.add(slug)
+            return False
+        if not args.mega and not args.pages :
+            return False
+        return True
+    elif object_name == 'CMS_Content__c':
+        if not filter_state:
+            return False
+        should_filter = True
+        if row['CMS_Page__r'] and row['CMS_Page__r']['Slug__c'] in filter_state:
+            should_filter = False
+        elif row['Collection__r'] and row['Collection__r']['CMS_Page__r'] and row['Collection__r']['CMS_Page__r']['Slug__c'] in filter_state:
+            should_filter = False
+        elif row['CMS_Mega_Menu__r'] and row['CMS_Mega_Menu__r']['Slug__c'] in filter_state:
+            should_filter = False
+        elif row['Collection__r'] and row['Collection__r']['CMS_Mega_Menu__r']and row['Collection__r']['CMS_Mega_Menu__r']['Slug__c'] in filter_state:
+            should_filter = False
+
+        del row['CMS_Page__r']
+        del row['Collection__r']
+        del row['CMS_Mega_Menu__r']
+
+        if not should_filter:
+            filter_state.add(row['Id'])
+        return should_filter
+    elif object_name == 'CMS_Asset__c':
+        if not filter_state:
+            return False
+        if row['CMS_Content__c'] in filter_state:
+            filter_state.add(row['ContentDocument__c'])
+            return False
+        return True
+    elif object_name == 'ContentVersion':
+        if not filter_state:
+            return False
+        if row['ContentDocumentId'] in filter_state:
+            return False
+        return True
+    else:
+        pass
+
+def add_sheet(sf, wb, fields,  object_name, sheet_name, filter_state, args):
     meta = sf.__getattr__(object_name).describe()
     recordtypes = {}
     for r in meta['recordTypeInfos']:
         recordtypes[r['recordTypeId']] = r['name']
     if object_name == 'CMS_Content__c':
-        records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by collection__c desc')['records']
+        records = sf.query('select Collection__r.CMS_Page__r.Slug__c, CMS_Page__r.Slug__c, Collection__r.CMS_Mega_Menu__r.Slug__c, CMS_Mega_Menu__r.Slug__c, ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by collection__c desc')['records']
     else:
         records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by createddate')['records']
     wb.create_sheet(sheet_name)
     sheet = wb[sheet_name]
+
     for i, row in enumerate(records):
         if i == 0:
-            th = [x for x in row.keys() if x not in ['attributes','OwnerId']]
+            th = [x for x in row.keys() if x not in ['attributes','OwnerId','CMS_Page__r','Collection__r','CMS_Mega_Menu__r']]
             if 'RecordTypeId' in row:
                 th = th + ['RecordTypeName']
             sheet.append(th)
+
+        if should_filter(row, object_name, filter_state, args):
+            continue
 
         tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
         if 'RecordTypeId' in row:
@@ -80,7 +138,7 @@ def add_sheet(sf, wb, fields,  object_name, sheet_name):
 
         sheet.append(tr)
 
-def add_sheet_content(sf, wb, fields,  object_name, sheet_name, filepath):
+def add_sheet_content(sf, wb, fields,  object_name, sheet_name, filepath, filter_state, args):
     meta = sf.__getattr__(object_name).describe()
     records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) +
                        ' from ' + object_name +
@@ -96,6 +154,9 @@ def add_sheet_content(sf, wb, fields,  object_name, sheet_name, filepath):
             th = [x for x in row.keys() if x not in ['attributes','OwnerId']]
             sheet.append(th)
         tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
+
+        if should_filter(row, object_name, filter_state, args):
+            continue
 
         url = "https://%s%s" % (sf.sf_instance, row['VersionData'])
         response = requests.get(url, headers={"Authorization": "OAuth " + sf.session_id, "Content-Type": "application/octet-stream"})
@@ -134,16 +195,22 @@ def get_data(sheet, key='Id'):
             rs[id] = t
     return rs
 
+def create_record(meta, row):
+    for field in row:
+        if field not in meta['fields']:
+            row.pop(field)
+    return row
+
 def transfer_pages(map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Pages'
     sheet = wb[sheet_name]
     data = get_data(sheet, 'Id')
-
+    meta = sf.CMS_Page__c.describe()
 
 
     for row in data.values():
         note = ''
-        record = row.a.copy()
+        record = create_record(meta, row.a.copy())
         exists = sf.query('select id, Name from CMS_Page__c where Name = \'%s\''%(row.a['Name']))['records']
         if exists:
             row.b_id = exists[0]['Id']
@@ -164,50 +231,6 @@ def transfer_pages(map, wb, wb_out, sf, read_only=False):
     map.update(data)
     print()
 
-def convert(filepath, sf, wb_out):
-    archive = zipfile.ZipFile(filepath, 'r')
-    for x in archive.namelist():
-        if x.endswith('.xlsx'):
-            excel_file = archive.open(x)
-            break
-
-    wb = load_workbook(excel_file)
-
-    wb_out.writerow(['ORIGINAL_ID','NEW_ID','Notes'])
-    map = {}
-
-
-    transfer_pages(map, wb, wb_out,  sf, True)
-
-    sheet_name = 'Collections'
-    sheet = wb[sheet_name]
-    data = get_data(sheet)
-
-    recordtype = get_recordtype(sf.CMS_Content__c.describe(), 'Collection')
-
-    for row in data.values():
-        note = ''
-        record = row.a.copy()
-        if record['CMS_Page__c'] in map:
-            record['CMS_Page__c'] = map[row.a['CMS_Page__c']].b_id
-        record['RecordTypeId'] = recordtype['recordTypeId']
-        exists = sf.query('select id, Name from CMS_Content__c where name = \'%s\' or slug__c = \'%s\''%(row.a['Name'], row.a['Slug__c']))['records']
-        if exists:
-            row.b_id = exists[0]['Id']
-            row.b = exists[0]
-            sf.CMS_Content__c.update(row.b_id, record)
-            note += 'updated record'
-        else:
-            rs = sf.CMS_Content__c.create(record)
-            row.b_id = rs['id']
-            row.b = row.a
-            note += 'created record'
-            record['Id'] = row.b_id
-            wb_out.writerow([row.a_id,row.b_id, note])
-    map.update(data)
-
-    transfer(filepath, sf, wb_out, map)
-
 def get_recordtype(meta, recordtype_name):
     for rt in meta['recordTypeInfos']:
         if rt['name'] == recordtype_name:
@@ -218,10 +241,10 @@ def transfer_mega(map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Mega Menu'
     sheet = wb[sheet_name]
     data = get_data(sheet)
-
+    meta = sf.CMS_Mega_Menu__c.describe()
     for row in data.values():
         note = ''
-        record = row.a.copy()
+        record = create_record(meta, row.a.copy())
 
         exists = sf.query('select id, Name from CMS_Mega_Menu__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
 
@@ -249,10 +272,11 @@ def transfer_content(map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Contents'
     sheet = wb[sheet_name]
     data = get_data(sheet)
+    meta = sf.CMS_Content__c.describe()
 
     for row in data.values():
         note = ''
-        record = row.a.copy()
+        record = create_record(meta, row.a.copy())
 
         if record['Collection__c'] in map:
             record['Collection__c'] = map[record['Collection__c']].b_id
@@ -299,10 +323,10 @@ def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
     sheet = wb[sheet_name]
     data = get_data(sheet, 'ContentDocumentId')
 
-
+    meta = sf.ContentDocument.describe()
     for document_id, row in data.items():
         note = ''
-        record = row.a.copy()
+        record = create_record(meta, row.a.copy())
         exists = sf.query('select id, ContentDocumentId, Description  from ContentVersion where PathOnClient = \'%s\' and Checksum = \'%s\''%(row.a['PathOnClient'],row.a['Checksum']))['records']
         if exists:
             row.b_id = exists[0]['Id']
@@ -348,10 +372,11 @@ def transfer_assets(map, wb, wb_out, sf):
     sheet = wb[sheet_name]
     data = get_data(sheet)
 
+    meta = sf.CMS_Asset__c.describe()
 
     for row in data.values():
         note = ''
-        record = row.a.copy()
+        record = create_record(meta, row.a.copy())
 
         if record['CMS_Content__c'] in map:
             record['CMS_Content__c'] = map[record['CMS_Content__c']].b_id

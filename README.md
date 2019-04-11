@@ -53,48 +53,31 @@ Running from IDLE in windows tends to be a bit more responsive than running from
 sys.argv = ['','-u', '<username2>', '-p', '<password>', '-t', '<token>', '-s','t']
 ```
 
-## export.py
-call this script with the following parameters to generate a package. 
-the output will be an excel file and a folder called files. The folder contains the image content. *<> means user provided values.
-
-```sys.argv = ['','-u', '<username>', '-p', '<password>', '-t', '<token>', '-s','t']```
-
-#### Params
--u **username: Required** Salesforce environment username  
--p **password: Required** Salesforce environment password  
--t **Token: Required**   A salesforce token is a second passowrd that is required to access the Salesforce API. If you dont have it go to Settings > Reset Security Token and a new token will be emailed to you  
--s **Sandbox: Required** put 't' or 'true' if connection to a sandbox, put false if connecting to production
-
-## transfer.py
-call this script with the following parameters to transfer a package to a new environment
-
-```sys.argv = ['','-i','contentpak_<output from export>.zip','-u', '<username>', '-p', '<password>', '-t', '<token>', '-s','t']```
-
-#### Params
--i **input: Required** the path to the content pack you want to import  
--u **username: Required** Target Salesforce environment username   
--p **password: Required** Target Salesforce environment password  
--t **Token: Required**   A salesforce token is a second passowrd that is required to access the Salesforce API. If you dont have it go to Settings > Reset Security Token and a new token will be emailed to you  
--s **Sandbox: Required** put 't' or 'true' if connection to a sandbox, put false if connecting to production  
-
-## Mac execution instructions
+#General Script Information
 
 ## export.py
 call this script with the following parameters to generate a package. 
 the output will be an excel file and a folder called files. The folder contains the image content. *<> means user provided values.  
 
+
 ```$ python export.py -u <username> -p <password> -t <token> -s <is_sandbox? t/f>```
+
+* **note that these command line calls will work in Windows but review how to run in IDLE**
 
 #### Params
 -u **username: Required** Salesforce environment username  
 -p **password: Required** Salesforce environment password  
 -t **Token: Required**   A salesforce token is a second passowrd that is required to access the Salesforce API. If you dont have it go to Settings > Reset Security Token and a new token will be emailed to you  
--s **Sandbox: Required** put 't' or 'true' if connection to a sandbox, put false if connecting to production
+-s **Sandbox: Required** put 't' or 'true' if connection to a sandbox, put false if connecting to production  
+-pages **Filter By Page(s): Not Required** a comma delimited list of page slugs. When used it will limit the export to only the content that is related to the pages in the list.  
+-mega **Filter By Mega Menu(s): Not Required:** a comma delimited list of mega menu slugs. When used it will imit the export to only the content that is related to the menus in the list. (can be used in addition to -pages)    
 
 ## transfer.py
 call this script with the following parameters to transfer a package to a new environment
 
 ```$ python transfer.py -i <input 'contentpak_<username>.<date>.zip'> -u <username> -p <password> -t <token> -s <is_sandbox? t/f>```
+* **note that these command line calls will work in Windows but review how to run in IDLE**
+
 #### Params
 -i **input: Required** the path to the content pack you want to import  
 -u **username: Required** Target Salesforce environment username   
