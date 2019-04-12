@@ -1,3 +1,5 @@
+#V 1.12
+* added a line that throws messsage when content doesnt have a recordtypeid. necesary for function.
 #V 1.11
 * bug fixes
 
