@@ -149,8 +149,11 @@ def add_sheet(sf, wb, fields,  object_name, sheet_name, filter_state, args):
         if 'CMS_Mega_Menu__r' in row: del row['CMS_Mega_Menu__r']
 
         tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
-        if 'RecordTypeId' in row:
-            tr = tr + [recordtypes[row['RecordTypeId']]]
+        if object_name == 'CMS_Content__c' and 'RecordTypeId' in row:
+            if row['RecordTypeId']:
+                tr = tr + [recordtypes[row['RecordTypeId']]]
+            else:
+                raise Exception('missing recordtype for content', row['Id'], 'update and try again')
 
         sheet.append(tr)
 
