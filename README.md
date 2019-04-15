@@ -1,4 +1,4 @@
-# dd-cms-etl
+# dd-cms-etl - V1.12
 
 ## Purpose
 This package is built to package and deploy content across environments
@@ -6,6 +6,8 @@ This package is built to package and deploy content across environments
 1. first export the data from an environment using export.py into a xlsx package
 2. transfer the xlsx package to a new environment
 
+## Usage note:
+In order to succesfully transfers a contentpak you need to have the System Administrator profile or profile that has visiblity/access to the Asset Library. Additionally, the Asset library should be shared with the site guest user that the community setup under so that assets can be viewed in a non logged in context. 
 ## Install Instructions
 #### General
 * install python 3.7+ (later versions are likely fine but this is only tested with python 3)
