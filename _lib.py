@@ -242,23 +242,28 @@ def transfer_pages(map, wb, wb_out, sf, read_only=False):
     for row in data.values():
         note = ''
         record = create_record(meta, row.a.copy())
-        exists = sf.query('select id, Name from CMS_Page__c where Name = \'%s\''%(row.a['Name']))['records']
+        exists = sf.query('select id, Name from CMS_Page__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
             if not read_only: sf.CMS_Page__c.update(row.b_id, record)
             note += 'updated record'
+            print('.', end='')
         else:
             if not read_only:
-                rs = sf.CMS_Page__c.create(row.a)
-                row.b_id = rs['id']
-                row.b = row.a
-                note += 'created record'
+                try:
+                    rs = sf.CMS_Page__c.create(row.a)
+                    row.b_id = rs['id']
+                    row.b = row.a
+                    note += 'created record'
+                    print('+', end='')
+                except Exception as e:
+                    print(e)
             else:
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
         wb_out.writerow([row.a_id,row.b_id, note])
-        print('.', end='')
+
     map.update(data)
     print()
 
@@ -285,16 +290,17 @@ def transfer_mega(map, wb, wb_out, sf, read_only=False):
             row.b = exists[0]
             if not read_only: sf.CMS_Mega_Menu__c.update(row.b_id, record)
             note += 'updated record'
+            print('.', end='')
         else:
             if not read_only:
                 rs = sf.CMS_Mega_Menu__c.create(record)
                 row.b_id = rs['id']
                 row.b = row.a
                 note += 'created record'
+                print('+', end='')
             else:
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
-        print('.', end='')
         wb_out.writerow([row.a_id,row.b_id, note])
     print()
     map.update(data)
@@ -335,16 +341,17 @@ def transfer_content(map, wb, wb_out, sf, read_only=False):
             row.b = exists[0]
             if not read_only: sf.CMS_Content__c.update(row.b_id, record)
             note += 'updated record'
+            print('.', end='')
         else:
             if not read_only:
                 rs = sf.CMS_Content__c.create(record)
                 row.b_id = rs['id']
                 row.b = row.a
                 note += 'created record'
+                print('+', end='')
             else:
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
-        print('.', end='')
         wb_out.writerow([row.a_id,row.b_id, note])
         map.update(data) #need to update with every creation since the its a nested structure
     print()
@@ -366,6 +373,7 @@ def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
 
             if not read_only: sf.ContentDocument.update(row.b['ContentDocumentId'], {'Description':'cms-asset'})
             note += 'updated record'
+            print('.', end='')
         else:
             if not read_only:
                 b64encoded = archive.read('content/' + document_id).decode('utf-8')
@@ -374,6 +382,7 @@ def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
                 row.b_id = content['id']
                 row.b = sf.query('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where id = \'%s\''%(row.b_id))['records'][0]
                 note += 'created record'
+                print('+', end='')
             else:
                 raise Exception('record does not exist' + record['Title'])
         record['Id'] = row.b_id
@@ -388,7 +397,6 @@ def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
             wb_out.writerow(['',rs['id'], 'created content share'])
 
         wb_out.writerow([row.a_id,row.b_id, note])
-        print('.', end='')
     print()
     map.update(data)
 
@@ -441,6 +449,7 @@ def transfer_assets(map, wb, wb_out, sf):
             try:
                 rs = sf.CMS_Asset__c.update(row.b_id, record)
                 note += 'updated record'
+                print('.', end='')
             except Exception as e:
                 note += 'updated failed -- %s;'%(e.content[0]['message'])
         else:
@@ -448,9 +457,9 @@ def transfer_assets(map, wb, wb_out, sf):
             row.b_id = rs['id']
             row.b = row.a
             note += 'created record'
+            print('+', end='')
         row.a['Id'] = row.b_id
         wb_out.writerow([row.a_id,row.b_id, note])
-        print('.', end='')
     map.update(data)
     print()
 
