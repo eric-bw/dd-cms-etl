@@ -48,6 +48,6 @@ parser.add_argument('-mega', '--mega',
 args = parser.parse_args(sys.argv[1:])
 
 
-print('Items to remember!: 1) your user needs to be an administrator (to access the Asset Library).\n 2) your user needs to have the Portal CMS Editor Permission set.')
+print('Items to remember!:\n 1) your user needs to be an administrator (to access the Asset Library).\n 2) your user needs to have the Portal CMS Editor Permission set.')
 dev = Salesforce(username=args.username, password=args.password, sandbox=args.sandbox, security_token=args.token)
 _lib.output(dev, 'contentpak_' + args.username.split('@')[1]   + '_' + datetime.datetime.now().strftime('%y-%m-%d'), args)
