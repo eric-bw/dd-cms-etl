@@ -32,6 +32,12 @@ parser.add_argument('-s', '--sandbox',
                     required=True,
                     default=True)
 
+parser.add_argument('-d', '--debug',
+                    type=_lib.str2bool,
+                    help=' Debug output',
+                    required=False,
+                    default=False)
+
 
 args = parser.parse_args(sys.argv[1:])
 

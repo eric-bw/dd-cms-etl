@@ -232,7 +232,7 @@ def create_record(meta, row):
 
     return rs
 
-def transfer_pages(map, wb, wb_out, sf, read_only=False):
+def transfer_pages(args, map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Pages'
     sheet = wb[sheet_name]
     data = get_data(sheet, 'Id')
@@ -246,19 +246,22 @@ def transfer_pages(map, wb, wb_out, sf, read_only=False):
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
-            if not read_only: sf.CMS_Page__c.update(row.b_id, record)
+            if not read_only:
+                if args.debug:
+                    print('updating Page:', record)
+                sf.CMS_Page__c.update(row.b_id, record)
             note += 'updated record'
             print('.', end='')
         else:
             if not read_only:
-                try:
-                    rs = sf.CMS_Page__c.create(row.a)
-                    row.b_id = rs['id']
-                    row.b = row.a
-                    note += 'created record'
-                    print('+', end='')
-                except Exception as e:
-                    print(e)
+                if args.debug:
+                    print('creating Page:', record)
+                rs = sf.CMS_Page__c.create(row.a)
+                row.b_id = rs['id']
+                row.b = row.a
+                note += 'created record'
+                print('+', end='')
+
             else:
                 raise Exception('record does not exist' + record['Name'])
         record['Id'] = row.b_id
@@ -273,7 +276,7 @@ def get_recordtype(meta, recordtype_name):
             return rt
     return None
 
-def transfer_mega(map, wb, wb_out, sf, read_only=False):
+def transfer_mega(args, map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Mega Menu'
     sheet = wb[sheet_name]
     data = get_data(sheet)
@@ -288,11 +291,16 @@ def transfer_mega(map, wb, wb_out, sf, read_only=False):
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
-            if not read_only: sf.CMS_Mega_Menu__c.update(row.b_id, record)
+            if not read_only:
+                if args.debug:
+                    print('updating Mega Menu:', record)
+                sf.CMS_Mega_Menu__c.update(row.b_id, record)
             note += 'updated record'
             print('.', end='')
         else:
             if not read_only:
+                if args.debug:
+                    print('creating Mega Menu:', record)
                 rs = sf.CMS_Mega_Menu__c.create(record)
                 row.b_id = rs['id']
                 row.b = row.a
@@ -305,7 +313,7 @@ def transfer_mega(map, wb, wb_out, sf, read_only=False):
     print()
     map.update(data)
 
-def transfer_content(map, wb, wb_out, sf, read_only=False):
+def transfer_content(args, map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Contents'
     sheet = wb[sheet_name]
     data = get_data(sheet)
@@ -339,11 +347,17 @@ def transfer_content(map, wb, wb_out, sf, read_only=False):
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
-            if not read_only: sf.CMS_Content__c.update(row.b_id, record)
+
+            if not read_only:
+                if args.debug:
+                    print('updating Content:', record)
+                sf.CMS_Content__c.update(row.b_id, record)
             note += 'updated record'
             print('.', end='')
         else:
             if not read_only:
+                if args.debug:
+                    print('creating Content:', record)
                 rs = sf.CMS_Content__c.create(record)
                 row.b_id = rs['id']
                 row.b = row.a
@@ -356,7 +370,7 @@ def transfer_content(map, wb, wb_out, sf, read_only=False):
         map.update(data) #need to update with every creation since the its a nested structure
     print()
 
-def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
+def transfer_files(args, map, wb, wb_out, sf, archive, read_only=False):
     sheet_name = 'Files'
     sheet = wb[sheet_name]
     data = get_data(sheet, 'ContentDocumentId')
@@ -371,13 +385,19 @@ def transfer_files(map, wb, wb_out, sf, archive, read_only=False):
             row.b = exists[0]
             row.b['Description'] = 'cms-asset'
 
-            if not read_only: sf.ContentDocument.update(row.b['ContentDocumentId'], {'Description':'cms-asset'})
+            if not read_only:
+                if args.debug:
+                    print('updating File:', row.b)
+                sf.ContentDocument.update(row.b['ContentDocumentId'], {'Description':'cms-asset'})
             note += 'updated record'
             print('.', end='')
         else:
             if not read_only:
+
                 b64encoded = archive.read('content/' + document_id).decode('utf-8')
                 row.b = {'title' : row.a['Title'],'PathOnClient' : row.a['PathOnClient'],'VersionData' : b64encoded, 'Description': 'cms-asset'}
+                if args.debug:
+                    print('creating File:', row.b)
                 content = sf.ContentVersion.create(row.b)
                 row.b_id = content['id']
                 row.b = sf.query('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where id = \'%s\''%(row.b_id))['records'][0]
@@ -406,7 +426,7 @@ def get_file_list(sf):
         rs.append(row['ContentDocument__c'])
     return rs
 
-def transfer_assets(map, wb, wb_out, sf):
+def transfer_assets(args, map, wb, wb_out, sf):
     sheet_name = 'Assets'
     sheet = wb[sheet_name]
     data = get_data(sheet)
@@ -447,12 +467,16 @@ def transfer_assets(map, wb, wb_out, sf):
             row.b_id = exists[0]['Id']
             row.b = exists[0]
             try:
+                if args.debug:
+                    print('updating Asset:', record)
                 rs = sf.CMS_Asset__c.update(row.b_id, record)
                 note += 'updated record'
                 print('.', end='')
             except Exception as e:
                 note += 'updated failed -- %s;'%(e.content[0]['message'])
         else:
+            if args.debug:
+                print('creating Asset:', record)
             rs = sf.CMS_Asset__c.create(record)
             row.b_id = rs['id']
             row.b = row.a
@@ -480,15 +504,15 @@ def transfer(filepath, sf, wb_out, args, read_only = False):
     wb = load_workbook(excel_file)
     map={}
     print('transferring files')
-    transfer_files(map, wb, wb_out, sf, archive, read_only)
+    transfer_files(args, map, wb, wb_out, sf, archive, read_only)
     print('transferring pages')
-    transfer_pages(map, wb, wb_out,  sf, read_only)
+    transfer_pages(args, map, wb, wb_out,  sf, read_only)
     print('transferring mega menus')
-    transfer_mega(map, wb, wb_out, sf, read_only)
+    transfer_mega(args, map, wb, wb_out, sf, read_only)
     print('transferring content')
-    transfer_content(map, wb, wb_out, sf, read_only)
+    transfer_content(args, map, wb, wb_out, sf, read_only)
     print('transferring assets')
-    transfer_assets(map, wb, wb_out, sf)
+    transfer_assets(args, map, wb, wb_out, sf)
     print('done')
 
 def clear_content(sf, objects):
