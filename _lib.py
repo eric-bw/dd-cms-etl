@@ -136,7 +136,7 @@ def add_sheet(sf, wb, fields,  object_name, sheet_name, filter_state, args):
 
     for i, row in enumerate(records):
         if i == 0:
-            th = [x for x in row.keys() if x not in ['attributes','OwnerId','CMS_Page__r','Collection__r','CMS_Mega_Menu__r']]
+            th = [x for x in row.keys() if x not in ['attributes','OwnerId','CreatedDate','CreatedById','LastModifiedDate','LastModifiedById','CMS_Page__r','Collection__r','CMS_Mega_Menu__r']]
             if 'RecordTypeId' in row:
                 th = th + ['RecordTypeName']
             sheet.append(th)
@@ -148,7 +148,7 @@ def add_sheet(sf, wb, fields,  object_name, sheet_name, filter_state, args):
         if 'Collection__r' in row: del row['Collection__r']
         if 'CMS_Mega_Menu__r' in row: del row['CMS_Mega_Menu__r']
 
-        tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
+        tr = [y for x,y in row.items() if x not in ['attributes','OwnerId','CreatedDate','CreatedById','LastModifiedDate','LastModifiedById']]
         if object_name == 'CMS_Content__c' and 'RecordTypeId' in row:
             if row['RecordTypeId']:
                 tr = tr + [recordtypes[row['RecordTypeId']]]
@@ -170,9 +170,9 @@ def add_sheet_content(sf, wb, fields,  object_name, sheet_name, filepath, filter
     os.mkdir('./content')
     for i, row in enumerate(records):
         if i == 0:
-            th = [x for x in row.keys() if x not in ['attributes','OwnerId']]
+            th = [x for x in row.keys() if x not in ['attributes','OwnerId','CreatedDate','CreatedById','LastModifiedDate','LastModifiedById']]
             sheet.append(th)
-        tr = [y for x,y in row.items() if x not in ['attributes','OwnerId']]
+        tr = [y for x,y in row.items() if x not in ['attributes','OwnerId','CreatedDate','CreatedById','LastModifiedDate','LastModifiedById']]
 
         if should_filter(row, object_name, filter_state, args):
             continue
