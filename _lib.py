@@ -26,7 +26,7 @@ def create_pages(sf):
             for i, row in enumerate(sheet.rows):
                 if i > 0:
                     q = 'select id from CMS_Page__c where uri__c = \'%s\''%(row[3].value,)
-                    rs = sf.query(q)['records']
+                    rs = sf.query_all(q)['records']
                     if rs:
                         sheet[row[0].coordinate] = rs[0]['Id']
                     else:
@@ -128,9 +128,9 @@ def add_sheet(sf, wb, fields,  object_name, sheet_name, filter_state, args):
     for r in meta['recordTypeInfos']:
         recordtypes[r['recordTypeId']] = r['name']
     if object_name == 'CMS_Content__c':
-        records = sf.query('select Collection__r.CMS_Page__r.Slug__c, CMS_Page__r.Slug__c, Collection__r.CMS_Mega_Menu__r.Slug__c, CMS_Mega_Menu__r.Slug__c, ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by collection__c desc')['records']
+        records = sf.query_all('select Collection__r.CMS_Page__r.Slug__c, CMS_Page__r.Slug__c, Collection__r.CMS_Mega_Menu__r.Slug__c, CMS_Mega_Menu__r.Slug__c, ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by collection__c desc')['records']
     else:
-        records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by createddate')['records']
+        records = sf.query_all('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) + ' from ' + object_name + ' order by createddate')['records']
     wb.create_sheet(sheet_name)
     sheet = wb[sheet_name]
 
@@ -159,7 +159,7 @@ def add_sheet(sf, wb, fields,  object_name, sheet_name, filter_state, args):
 
 def add_sheet_content(sf, wb, fields,  object_name, sheet_name, filepath, filter_state, args):
     meta = sf.__getattr__(object_name).describe()
-    records = sf.query('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) +
+    records = sf.query_all('select ' + ','.join(fields) +','+ ','.join([x['name'] for x in meta['fields'] if x['createable']]) +
                        ' from ' + object_name +
                        ' where ContentDocumentId in (\'' + '\',\''.join(get_file_list(sf)) +'\') ' +
                        ' order by createddate')['records']
@@ -242,7 +242,7 @@ def transfer_pages(args, map, wb, wb_out, sf, read_only=False):
     for row in data.values():
         note = ''
         record = create_record(meta, row.a.copy())
-        exists = sf.query('select id, Name from CMS_Page__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
+        exists = sf.query_all('select id, Name from CMS_Page__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
@@ -287,7 +287,7 @@ def transfer_mega(args, map, wb, wb_out, sf, read_only=False):
         note = ''
         record = create_record(meta, row.a.copy())
 
-        exists = sf.query('select id, Name from CMS_Mega_Menu__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
+        exists = sf.query_all('select id, Name from CMS_Mega_Menu__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
 
 
         if exists:
@@ -345,7 +345,7 @@ def transfer_content(args, map, wb, wb_out, sf, read_only=False):
             record['RecordTypeId'] = recordtypes[record['RecordTypeName']]
             record.pop('RecordTypeName')
 
-        exists = sf.query('select id, Name from CMS_Content__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
+        exists = sf.query_all('select id, Name from CMS_Content__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
 
 
         if exists:
@@ -385,7 +385,7 @@ def transfer_files(args, map, wb, wb_out, sf, archive, read_only=False):
     for document_id, row in data.items():
         note = ''
         record = create_record(meta, row.a.copy())
-        exists = sf.query('select id, ContentDocumentId, Description  from ContentVersion where PathOnClient = \'%s\' and Checksum = \'%s\''%(row.a['PathOnClient'],row.a['Checksum']))['records']
+        exists = sf.query_all('select id, ContentDocumentId, Description  from ContentVersion where PathOnClient = \'%s\' and Checksum = \'%s\''%(row.a['PathOnClient'],row.a['Checksum']))['records']
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
@@ -407,18 +407,18 @@ def transfer_files(args, map, wb, wb_out, sf, archive, read_only=False):
                     print('creating File:', row.b)
                 content = sf.ContentVersion.create(row.b)
                 row.b_id = content['id']
-                row.b = sf.query('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where id = \'%s\''%(row.b_id))['records'][0]
+                row.b = sf.query_all('select id, Title, VersionData, PathOnClient, ContentDocumentId from ContentVersion where id = \'%s\''%(row.b_id))['records'][0]
                 note += 'created record'
 
             else:
                 raise Exception('record does not exist' + record['Title'])
         record['Id'] = row.b_id
 
-        library = sf.query('select id from ContentWorkspace where DeveloperName = \'sfdc_asset_company_assets\'')['records']
+        library = sf.query_all('select id from ContentWorkspace where DeveloperName = \'sfdc_asset_company_assets\'')['records']
         if not library:
             raise Exception('Asset Library not found (sfdc_asset_company_assets)')
 
-        share = sf.query('select id from ContentDocumentLink where ContentDocumentId = \'%s\' and LinkedEntityId = \'%s\''%(row.b['ContentDocumentId'], library[0]['Id']))['records']
+        share = sf.query_all('select id from ContentDocumentLink where ContentDocumentId = \'%s\' and LinkedEntityId = \'%s\''%(row.b['ContentDocumentId'], library[0]['Id']))['records']
         if not share:
             rs = sf.ContentDocumentLink.create({'ContentDocumentId': row.b['ContentDocumentId'], 'LinkedEntityId': library[0]['Id'], 'ShareType':'I','Visibility':'AllUsers'})
             wb_out.writerow(['',rs['id'], 'created content share'])
@@ -429,7 +429,7 @@ def transfer_files(args, map, wb, wb_out, sf, archive, read_only=False):
 
 def get_file_list(sf):
     rs = []
-    for row in sf.query('select ContentDocument__c from CMS_Asset__c')['records']:
+    for row in sf.query_all('select ContentDocument__c from CMS_Asset__c')['records']:
         rs.append(row['ContentDocument__c'])
     return rs
 
@@ -469,7 +469,7 @@ def transfer_assets(args, map, wb, wb_out, sf):
         else:
             note += 'record %s missing version;'%(record['ContentVersion__c'])
 
-        exists = sf.query('select id, Name from CMS_Asset__c where slug__c = \'%s\''%(slugify(record['Asset_Type__c'], record['CMS_Content__c'])))['records']
+        exists = sf.query_all('select id, Name from CMS_Asset__c where slug__c = \'%s\''%(slugify(record['Asset_Type__c'], record['CMS_Content__c'])))['records']
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
@@ -533,12 +533,12 @@ def clear_content(sf, objects):
             records = []
             if o == 'ContentDocument':
                 scope = []
-                for x in sf.query('select ContentDocument__c from CMS_Asset__c')['records']:
+                for x in sf.query_all('select ContentDocument__c from CMS_Asset__c')['records']:
                     scope.append(x['ContentDocument__c'])
-                for x in sf.query('select id from ' + o + ' where id in (\'%s\')'%("','".join(scope)))['records']:
+                for x in sf.query_all('select id from ' + o + ' where id in (\'%s\')'%("','".join(scope)))['records']:
                     records.append({'Id':x['Id']})
             else:
-                for x in sf.query('select id from ' + o)['records']:
+                for x in sf.query_all('select id from ' + o)['records']:
                     records.append({'Id': x['Id']})
             if records:
                 sf.bulk.__getattr__(o).delete(records)

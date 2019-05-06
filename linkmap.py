@@ -10,6 +10,8 @@ from simple_salesforce import Salesforce
 import argparse
 import csv
 import re
+from openpyxl import load_workbook, Workbook
+
 
 
 
@@ -21,6 +23,13 @@ parser.add_argument('-a', '--action',
                     required=True,
                     default='breakdown')
 
+parser.add_argument('-c', '--content',
+                    help=' content',
+                    required=False)
+
+parser.add_argument('-i', '--input',
+                    help=' input',
+                    required=False)
 
 parser.add_argument('-u', '--username',
                     help=' Username',
@@ -84,6 +93,23 @@ def write_mega(csv,o, oname, id, field,label, value):
     csv.writerow(values)
 
 def breakdown(sf):
+    f = csv.writer(open('body_content_backup' + str(datetime.datetime.now()) + '.csv', 'w'))
+
+    for row in sf.query_all('select Id, body__c from CMS_Content__c')['records']:
+        if row['Body__c']:
+            print(row)
+            f.writerow([row['Id'], 'Body__c', row['Body__c']])
+
+    for row in sf.query_all('select Id, breadcrumb__c,Broker_Breadcrumb__c,slug__c, Employer_Breadcrumb__c,Provider_Breadcrumb__c, Member_Mobile_breadcrumb__c,Broker_Mobile_Breadcrumb__c,Employer_Mobile_Breadcrumb__c,Provider_Mobile_Breadcrumb__c from CMS_Page__c')['records']:
+        if row['breadcrumb__c']: f.writerow([row['Id'], 'breadcrumb__c', row['breadcrumb__c']])
+        if row['Broker_Breadcrumb__c']: f.writerow([row['Id'], 'Broker_Breadcrumb__c', row['Broker_Breadcrumb__c']])
+        if row['Employer_Breadcrumb__c']: f.writerow([row['Id'], 'Employer_Breadcrumb__c', row['Employer_Breadcrumb__c']])
+        if row['Provider_Breadcrumb__c']: f.writerow([row['Id'], 'Provider_Breadcrumb__c', row['Provider_Breadcrumb__c']])
+        if row['Member_Mobile_Breadcrumb__c']: f.writerow([row['Id'], 'Member_Mobile_Breadcrumb__c', row['Member_Mobile_Breadcrumb__c']])
+        if row['Broker_Mobile_Breadcrumb__c']: f.writerow([row['Id'], 'Broker_Mobile_Breadcrumb__c', row['Broker_Mobile_Breadcrumb__c']])
+        if row['Employer_Mobile_Breadcrumb__c']: f.writerow([row['Id'], 'Employer_Mobile_Breadcrumb__c', row['Employer_Mobile_Breadcrumb__c']])
+        if row['Provider_Mobile_Breadcrumb__c']: f.writerow([row['Id'], 'Provider_Mobile_Breadcrumb__c', row['Provider_Mobile_Breadcrumb__c']])
+
     f = csv.writer(open('links.csv','w'))
     f.writerow(['Object','ID', 'Link', 'Mega Menu', 'Field','Coordinates','Label', 'href'])
     fields = '''Id, slug__c, Title__c, RecordType.Name, Name, body__c, link__c, link_text__c, CMS_Mega_Menu__c, Collection__r.CMS_Mega_Menu__c '''
@@ -132,6 +158,34 @@ def breakdown(sf):
             write_match(f, page, 'CMS_Page__c', page['Id'], 'Provider_Mobile_Breadcrumb__c', m)
 
 
+def update(sf, page, field):
+    if page[field]:
+        record = page[field]
+        record = record.replace('[Home](home)','[Home](..)')
+        record = record.replace('[Home](Home)','[Home](..)')
+        record = record.replace('[Home](#)','[Home](..)')
+        record = record.replace('[home](home)','[Home](..)')
+        record = record.replace('[Home](member-page)','[Home](..)')
+
+        record = record.replace(')>[',') > [')
+        record = record.replace('[Our Company](#)','[Our Company](our-company)')
+        record = record.replace('[Careers](#)','[Careers](careers)')
+        record = record.replace('[Online Tools](Online Tools)','[Online Tools](online-tools)')
+        print(record)
+        sf.CMS_Page__c.update(page['Id'], {field:record})
+
+
+
+def load(sf, args):
+    for page in sf.query_all('select Id, breadcrumb__c,Broker_Breadcrumb__c,slug__c, Employer_Breadcrumb__c,Provider_Breadcrumb__c, Member_Mobile_breadcrumb__c,Broker_Mobile_Breadcrumb__c,Employer_Mobile_Breadcrumb__c,Provider_Mobile_Breadcrumb__c from CMS_Page__c')['records']:
+        update(sf, page, 'breadcrumb__c')
+        update(sf, page, 'Broker_Breadcrumb__c')
+        update(sf, page, 'Employer_Breadcrumb__c')
+        update(sf, page, 'Provider_Breadcrumb__c')
+        update(sf, page, 'Member_Mobile_Breadcrumb__c')
+        update(sf, page, 'Broker_Mobile_Breadcrumb__c')
+        update(sf, page, 'Employer_Mobile_Breadcrumb__c')
+        update(sf, page, 'Provider_Mobile_Breadcrumb__c')
 
 
 
@@ -142,4 +196,5 @@ sf = Salesforce(username=args.username, password=args.password, sandbox=args.san
 
 if args.action == 'breakdown':
     breakdown(sf)
-
+if args.action == 'load':
+    load(sf, args)
