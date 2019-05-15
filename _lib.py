@@ -243,6 +243,10 @@ def transfer_pages(args, map, wb, wb_out, sf, read_only=False):
         note = ''
         record = create_record(meta, row.a.copy())
         exists = sf.query_all('select id, Name from CMS_Page__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
+
+        if 'Menu_Context__c' in record:
+            record['Menu_Context__c'] = map[record['Menu_Context__c']].b_id
+
         if exists:
             row.b_id = exists[0]['Id']
             row.b = exists[0]
@@ -258,9 +262,9 @@ def transfer_pages(args, map, wb, wb_out, sf, read_only=False):
                 print('+', end='')
                 if args.debug:
                     print('creating Page:', record)
-                rs = sf.CMS_Page__c.create(row.a)
+                rs = sf.CMS_Page__c.create(record)
                 row.b_id = rs['id']
-                row.b = row.a
+                row.b = record
                 note += 'created record'
 
 
@@ -317,6 +321,17 @@ def transfer_mega(args, map, wb, wb_out, sf, read_only=False):
     print()
     map.update(data)
 
+
+def set_recordtype(sf, record):
+    recordtypes={}
+    meta = sf.CMS_Content__c.describe()
+    for r in meta['recordTypeInfos']:
+        recordtypes[r['name']] = r['recordTypeId']
+
+    if record['RecordTypeName'] in recordtypes:
+        record['RecordTypeId'] = recordtypes[record['RecordTypeName']]
+        record.pop('RecordTypeName')
+
 def transfer_content(args, map, wb, wb_out, sf, read_only=False):
     sheet_name = 'Contents'
     sheet = wb[sheet_name]
@@ -336,14 +351,7 @@ def transfer_content(args, map, wb, wb_out, sf, read_only=False):
         if record['CMS_Mega_Menu__c'] in map:
             record['CMS_Mega_Menu__c'] = map[record['CMS_Mega_Menu__c']].b_id
 
-        recordtypes={}
-        meta = sf.CMS_Content__c.describe()
-        for r in meta['recordTypeInfos']:
-            recordtypes[r['name']] = r['recordTypeId']
-
-        if record['RecordTypeName'] in recordtypes:
-            record['RecordTypeId'] = recordtypes[record['RecordTypeName']]
-            record.pop('RecordTypeName')
+        set_recordtype(sf, record)
 
         exists = sf.query_all('select id, Name from CMS_Content__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
 
@@ -513,10 +521,10 @@ def transfer(filepath, sf, wb_out, args, read_only = False):
     map={}
     print('transferring files')
     transfer_files(args, map, wb, wb_out, sf, archive, read_only)
-    print('transferring pages')
-    transfer_pages(args, map, wb, wb_out,  sf, read_only)
     print('transferring mega menus')
     transfer_mega(args, map, wb, wb_out, sf, read_only)
+    print('transferring pages')
+    transfer_pages(args, map, wb, wb_out,  sf, read_only)
     print('transferring content')
     transfer_content(args, map, wb, wb_out, sf, read_only)
     print('transferring assets')

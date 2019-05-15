@@ -77,13 +77,13 @@ def write_match(csv, o, oname, id, field,  match):
     print(values)
     csv.writerow(values)
 
-def write_link(csv,o, oname, id, field,label, value):
+def write_link(csv,o, oname, id, field,label, value, options):
     is_mega = False
     if 'CMS_Mega_Menu__c' in o and o['CMS_Mega_Menu__c'] is not None:
         is_mega = True
     if 'Collection__r' in o and o['Collection__r'] is not None and o['Collection__r']['CMS_Mega_Menu__c'] is not None:
         is_mega = True
-    values = [oname, id, 'https://deltadentalwi--coredx.lightning.force.com/lightning/r/' + oname + '/' + id + '/view', is_mega, field, '', label, value]
+    values = [oname, id, 'https://deltadentalwi--coredx.lightning.force.com/lightning/r/' + oname + '/' + id + '/view', is_mega, field, '', label, value, options]
     print(values)
     csv.writerow(values)
 
@@ -112,7 +112,7 @@ def breakdown(sf):
 
     f = csv.writer(open('links.csv','w'))
     f.writerow(['Object','ID', 'Link', 'Mega Menu', 'Field','Coordinates','Label', 'href'])
-    fields = '''Id, slug__c, Title__c, RecordType.Name, Name, body__c, link__c, link_text__c, CMS_Mega_Menu__c, Collection__r.CMS_Mega_Menu__c '''
+    fields = '''Link_Options__c, Id, slug__c, Title__c, RecordType.Name, Name, body__c, link__c, link_text__c, CMS_Mega_Menu__c, Collection__r.CMS_Mega_Menu__c '''
     for content in sf.query_all('select ' + fields + ' ,(select ' + fields + ' from Contents__r) from CMS_Content__c')['records']:
         if content['Body__c']:
             for m in re.finditer('\[(.*?)\]\((.*?)\)', content['Body__c']):
@@ -120,7 +120,7 @@ def breakdown(sf):
             for m in re.finditer('href="(.*?)"', content['Body__c']):
                 write_match(f, content, 'CMS_Content__c', content['Id'], 'Body__c', m)
             if(content['Link_Text__c']):
-                write_link(f, content, 'CMS_Content__c',content['Id'], 'link__c', content['Link_Text__c'], content['link__c'])
+                write_link(f, content, 'CMS_Content__c',content['Id'], 'link__c', content['Link_Text__c'], content['link__c'], content['Link_Options__c'])
             elif(content['RecordType']['Name'] == 'Mega Menu Content'):
                 write_mega(f, content, 'CMS_Content__c',content['Id'], 'link__c', content['Title__c'], content['link__c'])
 
@@ -132,7 +132,7 @@ def breakdown(sf):
                     for m in re.finditer('href="(.*?)"', child['Body__c']):
                         write_match(f, child, 'CMS_Content__c', content['Id'], 'Body__c', m)
                 if(child['Link_Text__c']):
-                    write_link(f, child, 'CMS_Content__c',child['Id'], 'Link__c', child['Link_Text__c'], child['link__c'])
+                    write_link(f, child, 'CMS_Content__c',child['Id'], 'Link__c', child['Link_Text__c'], child['link__c'], child['Link_Options__c'])
                 elif(child['RecordType']['Name'] == 'Mega Menu Content'):
                     write_mega(f, child, 'CMS_Content__c',child['Id'], 'link__c', child['Title__c'], child['link__c'])
 
