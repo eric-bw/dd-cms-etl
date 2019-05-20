@@ -245,7 +245,11 @@ def transfer_pages(args, map, wb, wb_out, sf, read_only=False):
         exists = sf.query_all('select id, Name from CMS_Page__c where slug__c = \'%s\''%(row.a['Slug__c']))['records']
 
         if 'Menu_Context__c' in record:
-            record['Menu_Context__c'] = map[record['Menu_Context__c']].b_id
+            key = record['Menu_Context__c']
+            if key in map:
+                record['Menu_Context__c'] = map[key].b_id
+            else:
+                record.pop('Menu_Context__c')
 
         if exists:
             row.b_id = exists[0]['Id']
