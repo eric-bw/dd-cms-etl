@@ -56,6 +56,11 @@ def output(sf, filepath, args) :
     add_sheet(sf, wb, ['Id'], 'CMS_Content__c', 'Contents', filter, args)
     print('.', end='')
     add_sheet(sf, wb, ['Id'],'CMS_Asset__c', 'Assets', filter, args)
+    print('.', end='')
+    add_sheet(sf, wb, ['Id'],'CMS_Global_Link__c', 'Links', filter, args)
+    print('.', end='')
+    add_sheet(sf, wb, ['Id'],'CMS_Error_Messaging__c', 'Errors', filter, args)
+
     print()
     print('creating content pack')
     add_sheet_content(sf, wb, ['Id','ContentSize','Checksum'], 'ContentVersion', 'Files', filepath, filter, args)
@@ -507,6 +512,84 @@ def transfer_assets(args, map, wb, wb_out, sf):
     map.update(data)
     print()
 
+def transfer_errors(args, map, wb, wb_out, sf):
+    sheet_name = 'Errors'
+    sheet = wb[sheet_name]
+    data = get_data(sheet)
+
+    meta = sf.CMS_Error_Messaging__c.describe()
+
+    for row in data.values():
+        note = ''
+        record = create_record(meta, row.a.copy())
+
+
+
+        exists = sf.query_all('select id, Name from CMS_Error_Messaging__c where Code__c = \'%s\''%(record['Code__c']))['records']
+        if exists:
+            row.b_id = exists[0]['Id']
+            row.b = exists[0]
+            try:
+                print('.', end='')
+                if args.debug:
+                    print('updating Error:', record)
+                rs = sf.CMS_Error_Messaging__c.update(row.b_id, record)
+                note += 'updated record'
+            except Exception as e:
+                note += 'updated failed -- %s;'%(e.content[0]['message'])
+        else:
+            print('+', end='')
+            if args.debug:
+                print('creating Error:', record)
+            rs = sf.CMS_Error_Messaging__c.create(record)
+            row.b_id = rs['id']
+            row.b = row.a
+            note += 'created record'
+
+        row.a['Id'] = row.b_id
+        wb_out.writerow([row.a_id,row.b_id, note])
+    map.update(data)
+    print()
+
+def transfer_links(args, map, wb, wb_out, sf):
+    sheet_name = 'Links'
+    sheet = wb[sheet_name]
+    data = get_data(sheet)
+
+    meta = sf.CMS_Global_Link__c.describe()
+
+    for row in data.values():
+        note = ''
+        record = create_record(meta, row.a.copy())
+
+
+
+        exists = sf.query_all('select id, Name from CMS_Global_Link__c where key__c = \'%s\' and Persona__c = \'%s\''%(record['key__c'],record['Persona__c']))['records']
+        if exists:
+            row.b_id = exists[0]['Id']
+            row.b = exists[0]
+            try:
+                print('.', end='')
+                if args.debug:
+                    print('updating Link:', record)
+                rs = sf.CMS_Global_Link__c.update(row.b_id, record)
+                note += 'updated record'
+            except Exception as e:
+                note += 'updated failed -- %s;'%(e.content[0]['message'])
+        else:
+            print('+', end='')
+            if args.debug:
+                print('creating Link:', record)
+            rs = sf.CMS_Global_Link__c.create(record)
+            row.b_id = rs['id']
+            row.b = row.a
+            note += 'created record'
+
+        row.a['Id'] = row.b_id
+        wb_out.writerow([row.a_id,row.b_id, note])
+    map.update(data)
+    print()
+
 def slugify(*args):
     return re.sub('[^0-9a-zA-Z]+', '-', (' '.join(args)).lower())
 
@@ -533,6 +616,10 @@ def transfer(filepath, sf, wb_out, args, read_only = False):
     transfer_content(args, map, wb, wb_out, sf, read_only)
     print('transferring assets')
     transfer_assets(args, map, wb, wb_out, sf)
+    print('transferring error messaging')
+    transfer_errors(args, map, wb, wb_out, sf)
+    print('transferring links')
+    transfer_links(args, map, wb, wb_out, sf)
     print('done')
 
 def clear_content(sf, objects):
