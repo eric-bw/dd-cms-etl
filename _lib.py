@@ -468,16 +468,7 @@ def transfer_assets(args, map, wb, wb_out, sf):
             print(note)
 
         if 'Type__c' in record:
-            record['Asset_Type__c'] = record['Type__c']
             record.pop('Type__c')
-
-        if 'type__c' in record:
-            record['Asset_Type__c'] = record['type__c']
-            record.pop('type__c')
-
-
-        if not record['Asset_Type__c']:
-            record['Asset_Type__c'] = 'MAIN_IMAGE'
 
         if row.a['ContentDocument__c'] in map:
             record['ContentDocument__c'] = map[row.a['ContentDocument__c']].b['ContentDocumentId']
